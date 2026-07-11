@@ -1,108 +1,79 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { AlertTriangle } from 'lucide-react';
-import { DashboardAgent } from '../../../lib/api/dashboard';
+import { AlertTriangle, ArrowUpRight, MapPin } from 'lucide-react';
+import type { DashboardAgent } from '../../../lib/api/dashboard';
 
-type AgentTableProps = {
-  agents: DashboardAgent[];
-  loading?: boolean;
-};
+type AgentTableProps = { agents: DashboardAgent[]; loading?: boolean };
 
-function formatCash(amount: number) {
-  return amount.toLocaleString('en-US');
+const formatCash = (amount: number) => `৳${amount.toLocaleString('en-US')}`;
+
+function QualityDot({ quality }: { quality: DashboardAgent['providers']['bkash']['dataQuality'] }) {
+  const colors = { fresh: 'bg-fresh', stale: 'bg-stale', missing: 'bg-missing', conflicting: 'bg-conflicting' } as const;
+  return <span aria-label={`${quality} data`} className={`h-2 w-2 rounded-full ${colors[quality]}`} />;
 }
 
-function ProviderCell({ balance, dataQuality }: { balance: number | null; dataQuality: DashboardAgent['providers']['bkash']['dataQuality'] }) {
-  if (dataQuality === 'missing' || balance === null) {
-    return <span className="text-text-muted">—</span>;
-  }
-
+function ProviderValue({ label, data }: { label: string; data: DashboardAgent['providers']['bkash'] }) {
   return (
-    <span className="flex items-center gap-2 tabular">
-      <span className={`h-2 w-2 rounded-full quality-${dataQuality}`} />
-      <span>{formatCash(balance)}</span>
-    </span>
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-text-muted">{label}</span>
+      <span className="flex items-center gap-2 font-semibold text-text-primary"><QualityDot quality={data.dataQuality} />{data.balance === null ? 'Unavailable' : formatCash(data.balance)}</span>
+    </div>
   );
 }
 
 export default function AgentTable({ agents, loading = false }: AgentTableProps) {
   const router = useRouter();
+  const openAgent = (id: string) => router.push(`/agents/${id}`);
 
-  if (loading) {
-    return (
-      <div className="card overflow-hidden">
-        <div className="grid grid-cols-10 gap-4 border-b border-bg-border px-4 py-3 text-xs text-text-muted">
-          {['Agent ID', 'Name', 'Area', 'Physical Cash', 'bKash', 'Nagad', 'Rocket', 'Alerts', 'Status', ''].map((heading) => (
-            <div key={heading}>{heading}</div>
-          ))}
-        </div>
-        <div className="divide-y divide-bg-border">
-          {Array.from({ length: 5 }).map((_, index) => (
-            <div key={index} className="grid grid-cols-10 gap-4 px-4 py-4">
-              {Array.from({ length: 10 }).map((__, cellIndex) => (
-                <div key={cellIndex} className="h-4 animate-pulse rounded bg-bg-hover" />
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (agents.length === 0) {
-    return (
-      <div className="card flex min-h-[280px] flex-col items-center justify-center gap-3 text-text-secondary">
-        <AlertTriangle className="h-10 w-10 text-text-muted" />
-        <div>No agents found</div>
-      </div>
-    );
-  }
+  if (loading) return <div className="card flex min-h-64 items-center justify-center text-sm text-text-muted">Loading scenario data…</div>;
+  if (agents.length === 0) return <div className="card flex min-h-64 flex-col items-center justify-center gap-3 text-text-secondary"><AlertTriangle className="h-9 w-9 text-text-muted" /><div>No matching agents</div></div>;
 
   return (
-    <div className="card overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="min-w-full">
-          <thead className="bg-bg-surface/70">
-            <tr className="border-b border-bg-border text-left">
-              {['Agent ID', 'Name', 'Area', 'Physical Cash', 'bKash', 'Nagad', 'Rocket', 'Alerts', 'Status'].map((heading) => (
-                <th key={heading} className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-text-muted">
-                  {heading}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {agents.map((agent) => (
-              <tr
-                key={agent.id}
-                className="cursor-pointer border-b border-bg-border transition-colors hover:bg-bg-hover"
-                onClick={() => router.push(`/agents/${agent.id}`)}
-              >
-                <td className="px-4 py-3 font-mono text-sm text-text-primary">{agent.id}</td>
-                <td className="px-4 py-3 text-sm text-text-primary">{agent.name}</td>
-                <td className="px-4 py-3 text-sm text-text-secondary">{agent.area}</td>
-                <td className={`px-4 py-3 text-sm font-semibold ${agent.physicalCash < 10000 ? 'text-critical' : agent.physicalCash < 25000 ? 'text-medium' : 'text-text-primary'}`}>
-                  {formatCash(agent.physicalCash)}
-                </td>
-                <td className="px-4 py-3 text-sm text-text-secondary">
-                  <ProviderCell balance={agent.providers.bkash.balance} dataQuality={agent.providers.bkash.dataQuality} />
-                </td>
-                <td className="px-4 py-3 text-sm text-text-secondary">
-                  <ProviderCell balance={agent.providers.nagad.balance} dataQuality={agent.providers.nagad.dataQuality} />
-                </td>
-                <td className="px-4 py-3 text-sm text-text-secondary">
-                  <ProviderCell balance={agent.providers.rocket.balance} dataQuality={agent.providers.rocket.dataQuality} />
-                </td>
-                <td className="px-4 py-3 text-sm">
-                  {agent.alerts > 0 ? <span className="badge-critical tabular">{agent.alerts}</span> : <span className="text-text-muted">—</span>}
-                </td>
-                <td className="px-4 py-3 text-sm text-text-secondary">{agent.status}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <>
+      <div className="grid gap-3 md:hidden">
+        {agents.map((agent) => (
+          <button key={agent.id} type="button" onClick={() => openAgent(agent.id)} className="card pearl-stripe w-full p-4 text-left">
+            <div className="flex items-start justify-between gap-3 pl-2">
+              <div>
+                <div className="font-mono text-xs font-bold text-bkash">{agent.id}</div>
+                <div className="mt-1 font-bold text-text-primary">{agent.name}</div>
+                <div className="mt-1 flex items-center gap-1 text-xs text-text-muted"><MapPin className="h-3 w-3" />{agent.area}</div>
+              </div>
+              <ArrowUpRight className="h-5 w-5 text-text-muted" />
+            </div>
+            <div className="mt-4 space-y-2 border-t border-bg-border pt-3 text-xs">
+              <ProviderValue label="Shared cash" data={{ ...agent.providers.bkash, balance: agent.physicalCash }} />
+              <ProviderValue label="bKash" data={agent.providers.bkash} />
+              <ProviderValue label="Nagad" data={agent.providers.nagad} />
+              <ProviderValue label="Rocket" data={agent.providers.rocket} />
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-2"><span className="text-xs text-text-secondary">{agent.status}</span>{agent.alerts > 0 ? <span className="badge-critical">{agent.alerts} alerts</span> : <span className="badge-low">Ready</span>}</div>
+          </button>
+        ))}
       </div>
-    </div>
+
+      <div className="card hidden overflow-hidden md:block">
+        <div className="overflow-x-auto">
+          <table className="min-w-[920px] w-full">
+            <thead className="bg-bg-surface/70">
+              <tr>{['Agent', 'Area', 'Shared cash', 'bKash', 'Nagad', 'Rocket', 'Alerts', 'Response posture'].map((heading) => <th key={heading} className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.12em] text-text-muted">{heading}</th>)}</tr>
+            </thead>
+            <tbody>
+              {agents.map((agent) => (
+                <tr key={agent.id} tabIndex={0} onClick={() => openAgent(agent.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') openAgent(agent.id); }} className="table-row cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bkash">
+                  <td className="px-4 py-4"><div className="font-semibold text-text-primary">{agent.name}</div><div className="mt-0.5 font-mono text-[10px] text-text-muted">{agent.id}</div></td>
+                  <td className="px-4 py-4 text-sm text-text-secondary">{agent.area}</td>
+                  <td className="px-4 py-4 text-sm font-bold text-text-primary">{formatCash(agent.physicalCash)}</td>
+                  {(['bkash', 'nagad', 'rocket'] as const).map((key) => <td key={key} className="px-4 py-4 text-sm text-text-secondary"><span className="flex items-center gap-2"><QualityDot quality={agent.providers[key].dataQuality} />{agent.providers[key].balance === null ? '—' : formatCash(agent.providers[key].balance!)}</span></td>)}
+                  <td className="px-4 py-4">{agent.alerts ? <span className="badge-critical">{agent.alerts}</span> : <span className="badge-low">0</span>}</td>
+                  <td className="px-4 py-4 text-xs font-medium text-text-secondary">{agent.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
   );
 }

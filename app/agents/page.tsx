@@ -1,0 +1,52 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import { Filter, Search } from 'lucide-react';
+import Sidebar from '../components/layout/Sidebar';
+import AgentTable from '../components/dashboard/AgentTable';
+import ScenarioBadge from '../components/ui/ScenarioBadge';
+import { getAgents, type DashboardAgent } from '../../lib/api/dashboard';
+import { mockAgents, type DataQuality, type ProviderKey } from '../../lib/api/mockData';
+
+export default function AgentsPage() {
+  const [agents, setAgents] = useState<DashboardAgent[]>(mockAgents);
+  const [search, setSearch] = useState('');
+  const [area, setArea] = useState('all');
+  const [provider, setProvider] = useState<'all' | ProviderKey>('all');
+  const [quality, setQuality] = useState<'all' | DataQuality>('all');
+
+  useEffect(() => { getAgents().then(setAgents); }, []);
+  const areas = useMemo(() => ['all', ...Array.from(new Set(agents.map((agent) => agent.area)))], [agents]);
+  const filtered = agents.filter((agent) => {
+    const query = search.trim().toLowerCase();
+    const matchesSearch = !query || agent.name.toLowerCase().includes(query) || agent.id.toLowerCase().includes(query);
+    const matchesArea = area === 'all' || agent.area === area;
+    const matchesProvider = provider === 'all' || agent.providers[provider].balance !== null;
+    const matchesQuality = quality === 'all' || (provider === 'all' ? Object.values(agent.providers).some((item) => item.dataQuality === quality) : agent.providers[provider].dataQuality === quality);
+    return matchesSearch && matchesArea && matchesProvider && matchesQuality;
+  });
+
+  return (
+    <div className="min-h-screen text-text-primary">
+      <Sidebar />
+      <main className="app-main">
+        <header className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div><div className="section-kicker">Agent operations</div><h1 className="mt-2 text-3xl font-extrabold">Super Agent Outlets</h1><p className="mt-2 text-sm text-text-secondary">Prioritize simulated outlets by area, provider and feed quality.</p></div>
+          <ScenarioBadge />
+        </header>
+
+        <section aria-label="Agent filters" className="card pearl-stripe mb-6 p-4 sm:p-5">
+          <div className="grid gap-3 pl-2 sm:grid-cols-2 xl:grid-cols-[1.5fr_1fr_1fr_1fr]">
+            <label className="relative"><span className="sr-only">Search agents</span><Search className="absolute left-3 top-3.5 h-4 w-4 text-text-muted" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search agent or outlet…" className="filter-control w-full pl-10" /></label>
+            <label><span className="sr-only">Area</span><select value={area} onChange={(event) => setArea(event.target.value)} className="filter-control w-full"><option value="all">All areas</option>{areas.slice(1).map((item) => <option key={item}>{item}</option>)}</select></label>
+            <label><span className="sr-only">Provider</span><select value={provider} onChange={(event) => setProvider(event.target.value as typeof provider)} className="filter-control w-full"><option value="all">All providers</option><option value="bkash">bKash</option><option value="nagad">Nagad</option><option value="rocket">Rocket</option></select></label>
+            <label><span className="sr-only">Data status</span><select value={quality} onChange={(event) => setQuality(event.target.value as typeof quality)} className="filter-control w-full"><option value="all">All data states</option><option value="fresh">Fresh</option><option value="stale">Delayed</option><option value="missing">Missing</option><option value="conflicting">Conflicting</option></select></label>
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-3 pl-2 text-xs text-text-muted"><span className="flex items-center gap-1.5"><Filter className="h-3.5 w-3.5" />Showing {filtered.length} of {agents.length} outlets</span><span>Current demo period</span></div>
+        </section>
+
+        <AgentTable agents={filtered} />
+      </main>
+    </div>
+  );
+}

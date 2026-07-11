@@ -27,7 +27,7 @@ export default function MetricCard({
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="text-sm text-text-secondary">{title}</div>
-          <div className="mt-2 text-2xl font-bold tabular text-text-primary">{value}</div>
+          <div className="text-display mt-2 text-2xl font-semibold tabular text-text-primary">{value}</div>
         </div>
         <div className={`flex h-10 w-10 items-center justify-center rounded-full ${bgClass}/10 ${textClass}`}>
           {icon}
@@ -42,6 +42,7 @@ export default function MetricCard({
           </div>
         ) : null}
       </div>
+      <div className="stripe-mint h-1 rounded-full" />
     </div>
   );
 }

@@ -75,7 +75,7 @@ export default function BackendOperationsPanel({
               {health?.service ?? 'Waiting for service'}
             </div>
             <div className="mt-1 text-sm text-text-muted">
-              {health ? `${health.environment} · v${health.version} · database ${health.database}` : 'Start the FastAPI server to stream live data.'}
+              {health ? `${health.environment} · v${health.version} · database ${health.database}` : 'Start the FastAPI server to load the simulated dataset.'}
             </div>
           </div>
           <span className={isHealthy ? 'badge-low' : 'badge-medium'}>

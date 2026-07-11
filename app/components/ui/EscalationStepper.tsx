@@ -22,7 +22,7 @@ export default function EscalationStepper({ path, currentLevel, status }: Escala
           const circleClass = isDone
             ? 'bg-low text-bg-base'
             : isCurrent
-              ? 'bg-bkash text-white animate-pulse'
+              ? 'bg-bkash text-white'
               : 'border border-bg-border bg-bg-surface text-text-muted';
 
           return (
