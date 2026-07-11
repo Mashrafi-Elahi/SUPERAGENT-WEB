@@ -56,6 +56,53 @@ const dataQualitySummarySchema = z.object({
   feeds: z.array(feedHealthSchema),
 });
 
+const healthSchema = z.object({
+  status: z.enum(['healthy', 'degraded']),
+  service: z.string(),
+  version: z.string(),
+  environment: z.string(),
+  database: z.enum(['connected', 'unavailable']),
+  timestamp: z.string(),
+});
+
+const replayEventSchema = z.object({
+  event_id: z.string(),
+  event_type: z.enum(['TRANSACTION', 'FEED_EVENT']),
+  timestamp: z.string(),
+  agent_id: z.string(),
+  provider_id: providerIdSchema,
+  applied: z.boolean(),
+  action: z.string(),
+  details: z.string(),
+});
+
+const replayStatusSchema = z.object({
+  status: z.enum(['READY', 'RUNNING', 'PAUSED', 'COMPLETED']),
+  simulation_start: z.string(),
+  simulation_end: z.string(),
+  simulation_time: z.string(),
+  total_events: z.number(),
+  processed_events: z.number(),
+  remaining_events: z.number(),
+  processed_transactions: z.number(),
+  processed_feed_events: z.number(),
+  completion_percentage: z.number(),
+  next_event_id: z.string().nullable().optional(),
+  next_event_time: z.string().nullable().optional(),
+  last_event: replayEventSchema.nullable().optional(),
+});
+
+const replayBatchSchema = z.object({
+  state: replayStatusSchema,
+  events: z.array(replayEventSchema),
+});
+
+const backendStatusSchema = z.object({
+  health: healthSchema.nullable(),
+  replay: replayStatusSchema.nullable(),
+  recentEvents: z.array(replayEventSchema),
+});
+
 const providerBalanceViewSchema = z.object({
   provider: providerKeySchema,
   balance: z.number().nullable(),
@@ -96,6 +143,10 @@ type FeedStatus = z.infer<typeof feedStatusSchema>;
 type AgentBalance = z.infer<typeof agentBalanceSchema>;
 type FeedHealth = z.infer<typeof feedHealthSchema>;
 type DataQualitySummary = z.infer<typeof dataQualitySummarySchema>;
+type ReplayBatch = z.infer<typeof replayBatchSchema>;
+
+export type BackendStatus = z.infer<typeof backendStatusSchema>;
+export type ReplayEvent = z.infer<typeof replayEventSchema>;
 
 const providerIdToKey: Record<ProviderId, ProviderKey> = {
   BKASH: 'bkash',
@@ -119,9 +170,17 @@ const agentDirectory: Record<string, { name: string; area: string }> = {
   AG006: { name: 'Bondor Bazar Agent', area: 'Bondor Bazar' },
 };
 
-async function readJson<T>(path: string, schema: z.ZodType<T>): Promise<T | null> {
+async function readJson<T>(
+  path: string,
+  schema: z.ZodType<T>,
+  init?: RequestInit,
+): Promise<T | null> {
   try {
-    const response = await fetch(`${API_BASE_URL}${path}`, { cache: 'no-store' });
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      cache: 'no-store',
+      headers: init?.body ? { 'Content-Type': 'application/json', ...init.headers } : init?.headers,
+      ...init,
+    });
 
     if (!response.ok) {
       return null;
@@ -140,6 +199,18 @@ async function getBalances(): Promise<AgentBalance[]> {
 
 async function getDataQualitySummary(): Promise<DataQualitySummary | null> {
   return readJson('/data-quality', dataQualitySummarySchema);
+}
+
+async function getReplayStatus() {
+  return readJson('/replay/status', replayStatusSchema);
+}
+
+async function getHealth() {
+  return readJson('/health', healthSchema);
+}
+
+async function getRecentEvents(): Promise<ReplayEvent[]> {
+  return (await readJson('/replay/recent-events?limit=6', z.array(replayEventSchema))) ?? [];
 }
 
 function healthForAgent(feeds: FeedHealth[], agentId: string) {
@@ -225,4 +296,38 @@ export async function getAgents(): Promise<DashboardAgent[]> {
   const feeds = dataQuality?.feeds ?? [];
 
   return agentsResponseSchema.parse(balances.map((balance) => mapAgent(balance, feeds)));
+}
+
+export async function getBackendStatus(): Promise<BackendStatus> {
+  const [health, replay, recentEvents] = await Promise.all([
+    getHealth(),
+    getReplayStatus(),
+    getRecentEvents(),
+  ]);
+
+  return backendStatusSchema.parse({
+    health,
+    replay,
+    recentEvents,
+  });
+}
+
+export async function stepReplay(eventCount = 10): Promise<ReplayBatch | null> {
+  return readJson('/replay/step', replayBatchSchema, {
+    method: 'POST',
+    body: JSON.stringify({ event_count: eventCount }),
+  });
+}
+
+export async function advanceReplay(minutes = 30): Promise<ReplayBatch | null> {
+  return readJson('/replay/advance', replayBatchSchema, {
+    method: 'POST',
+    body: JSON.stringify({ minutes }),
+  });
+}
+
+export async function resetReplay() {
+  return readJson('/replay/reset', replayStatusSchema, {
+    method: 'POST',
+  });
 }

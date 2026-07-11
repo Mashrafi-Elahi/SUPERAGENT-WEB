@@ -5,12 +5,25 @@ import { Activity, AlertTriangle, Bell, Store } from 'lucide-react';
 import Sidebar from './components/layout/Sidebar';
 import MetricCard from './components/ui/MetricCard';
 import AgentTable from './components/dashboard/AgentTable';
-import { DashboardAgent, DashboardSummary, getAgents, getDashboardSummary } from '../lib/api/dashboard';
+import BackendOperationsPanel from './components/dashboard/BackendOperationsPanel';
+import {
+  advanceReplay,
+  BackendStatus,
+  DashboardAgent,
+  DashboardSummary,
+  getAgents,
+  getBackendStatus,
+  getDashboardSummary,
+  resetReplay,
+  stepReplay,
+} from '../lib/api/dashboard';
 
 export default function Home() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [agents, setAgents] = useState<DashboardAgent[]>([]);
+  const [backendStatus, setBackendStatus] = useState<BackendStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [busyAction, setBusyAction] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -18,7 +31,11 @@ export default function Home() {
     async function loadData() {
       setLoading(true);
 
-      const [summaryData, agentsData] = await Promise.all([getDashboardSummary(), getAgents()]);
+      const [summaryData, agentsData, backendData] = await Promise.all([
+        getDashboardSummary(),
+        getAgents(),
+        getBackendStatus(),
+      ]);
 
       if (!active) {
         return;
@@ -26,6 +43,7 @@ export default function Home() {
 
       setSummary(summaryData);
       setAgents(agentsData);
+      setBackendStatus(backendData);
       setLoading(false);
     }
 
@@ -38,6 +56,36 @@ export default function Home() {
       window.clearInterval(dataRefreshInterval);
     };
   }, []);
+
+  async function refreshDashboard() {
+    const [summaryData, agentsData, backendData] = await Promise.all([
+      getDashboardSummary(),
+      getAgents(),
+      getBackendStatus(),
+    ]);
+
+    setSummary(summaryData);
+    setAgents(agentsData);
+    setBackendStatus(backendData);
+  }
+
+  async function runReplayAction(action: 'step' | 'advance' | 'reset') {
+    setBusyAction(action);
+
+    try {
+      if (action === 'step') {
+        await stepReplay();
+      } else if (action === 'advance') {
+        await advanceReplay();
+      } else {
+        await resetReplay();
+      }
+
+      await refreshDashboard();
+    } finally {
+      setBusyAction(null);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-bg-base text-text-primary">
@@ -77,6 +125,14 @@ export default function Home() {
             accentColor="bg-low text-low"
           />
         </div>
+
+        <BackendOperationsPanel
+          status={backendStatus}
+          busyAction={busyAction}
+          onStep={() => runReplayAction('step')}
+          onAdvance={() => runReplayAction('advance')}
+          onReset={() => runReplayAction('reset')}
+        />
 
         <AgentTable agents={agents} loading={loading} />
       </main>
