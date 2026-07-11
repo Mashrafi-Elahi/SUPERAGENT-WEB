@@ -1,26 +1,154 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+Bengali:wght@400;600;700&display=swap');
+
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-bkash: #E2136E;
+  --color-bkash-dark: #B8005A;
+  --color-bkash-light: #FF4D9D;
+  --color-nagad: #EF6C00;
+  --color-nagad-dark: #C45A00;
+  --color-nagad-light: #FF9A3C;
+  --color-rocket: #5C2D91;
+  --color-rocket-dark: #3E1A6B;
+  --color-rocket-light: #8B5CF6;
+
+  --color-bg-base: #09090F;
+  --color-bg-surface: #111118;
+  --color-bg-card: #16161F;
+  --color-bg-hover: #1E1E2A;
+  --color-bg-border: #2A2A3A;
+
+  --color-text-primary: #F0F0F5;
+  --color-text-secondary: #8888AA;
+  --color-text-muted: #55556A;
+
+  --color-critical: #FF3B3B;
+  --color-critical-bg: #2D0A0A;
+  --color-high: #FF8C00;
+  --color-high-bg: #2D1800;
+  --color-medium: #FFD700;
+  --color-medium-bg: #2D2500;
+  --color-low: #00C851;
+  --color-low-bg: #0A2D15;
+
+  --color-fresh: #00C851;
+  --color-stale: #FFD700;
+  --color-missing: #FF3B3B;
+  --color-conflicting: #FF8C00;
+
+  --font-sans: 'Inter', 'sans-serif';
+  --font-mono: 'JetBrains Mono', 'monospace';
+  --font-bangla: 'Noto Sans Bengali', 'sans-serif';
+
+  --shadow-card: 0 0 0 1px rgba(255,255,255,0.06), 0 4px 24px rgba(0,0,0,0.4);
+  --shadow-glow: 0 0 20px rgba(226,19,110,0.3);
+  --shadow-critical: 0 0 16px rgba(255,59,59,0.25);
+  --shadow-high: 0 0 16px rgba(255,140,0,0.2);
+
+  --radius: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@layer base {
+  html {
+    @apply bg-bg-base text-text-primary;
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  body {
+    @apply min-h-screen bg-bg-base text-text-primary antialiased;
+    font-family: var(--font-sans);
+  }
+
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-bg-border;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  .card {
+    @apply rounded-lg border border-bg-border bg-bg-card shadow-card;
+  }
+
+  .card-hover {
+    @apply rounded-lg border border-bg-border bg-bg-card shadow-card transition-all duration-200 hover:border-bkash/40 hover:shadow-glow;
+  }
+
+  .badge-critical {
+    @apply rounded border border-critical/30 bg-critical-bg px-2 py-0.5 text-xs font-semibold text-critical;
+  }
+
+  .badge-high {
+    @apply rounded border border-high/30 bg-high-bg px-2 py-0.5 text-xs font-semibold text-high;
+  }
+
+  .badge-medium {
+    @apply rounded border border-medium/30 bg-medium-bg px-2 py-0.5 text-xs font-semibold text-medium;
+  }
+
+  .badge-low {
+    @apply rounded border border-low/30 bg-low-bg px-2 py-0.5 text-xs font-semibold text-low;
+  }
+
+  .quality-fresh {
+    @apply text-fresh;
+  }
+
+  .quality-stale {
+    @apply text-stale;
+  }
+
+  .quality-missing {
+    @apply text-missing;
+  }
+
+  .quality-conflicting {
+    @apply text-conflicting;
+  }
+
+  .chip-bkash {
+    @apply rounded-full border border-bkash/20 bg-bkash/10 px-2 py-0.5 text-xs text-bkash;
+  }
+
+  .chip-nagad {
+    @apply rounded-full border border-nagad/20 bg-nagad/10 px-2 py-0.5 text-xs text-nagad;
+  }
+
+  .chip-rocket {
+    @apply rounded-full border border-rocket/20 bg-rocket/10 px-2 py-0.5 text-xs text-rocket;
+  }
+
+  .nav-item {
+    @apply flex items-center gap-3 rounded-lg px-3 py-2 text-text-secondary transition-all hover:bg-bg-hover hover:text-text-primary;
+  }
+
+  .nav-item-active {
+    @apply flex items-center gap-3 rounded-lg border-l-2 border-bkash bg-bg-hover px-3 py-2 text-text-primary transition-all hover:bg-bg-hover hover:text-text-primary;
+  }
+
+  .table-row {
+    @apply border-b border-bg-border transition-colors hover:bg-bg-hover;
+  }
+
+  .table-head {
+    @apply text-xs font-medium uppercase tracking-wider text-text-muted;
+  }
+
+  .bn {
+    @apply font-bangla;
+  }
 }

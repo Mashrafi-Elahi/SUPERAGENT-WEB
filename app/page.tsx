@@ -1,64 +1,84 @@
-import Image from "next/image";
+'use client';
+import LiveClock from './components/ui/LiveClock';
+import { useEffect, useState } from 'react';
+import { Activity, AlertTriangle, Bell, Store } from 'lucide-react';
+import Sidebar from './components/layout/Sidebar';
+import MetricCard from './components/ui/MetricCard';
+import AgentTable from './components/dashboard/AgentTable';
+import { DashboardAgent, DashboardSummary, getAgents, getDashboardSummary } from '../lib/api/dashboard';
 
 export default function Home() {
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [agents, setAgents] = useState<DashboardAgent[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadData() {
+      setLoading(true);
+
+      const [summaryData, agentsData] = await Promise.all([getDashboardSummary(), getAgents()]);
+
+      if (!active) {
+        return;
+      }
+
+      setSummary(summaryData);
+      setAgents(agentsData);
+      setLoading(false);
+    }
+
+    loadData();
+
+    const dataRefreshInterval = window.setInterval(loadData, 30000);
+
+    return () => {
+      active = false;
+      window.clearInterval(dataRefreshInterval);
+    };
+  }, []);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen bg-bg-base text-text-primary">
+      <Sidebar />
+      <main className="ml-60 min-h-screen p-6">
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="font-bangla text-3xl font-bold text-text-primary">লিকুইডিটি ও রিস্ক ড্যাশবোর্ড</h1>
+            <p className="mt-2 text-sm text-text-secondary">Super Agent Intelligence Platform</p>
+          </div>
+          <LiveClock />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            title="Total Agents"
+            value={summary ? summary.totalAgents.toString() : '—'}
+            icon={<Store className="h-5 w-5" />}
+            accentColor="bg-bkash text-bkash"
+          />
+          <MetricCard
+            title="Active Alerts"
+            value={summary ? summary.activeAlerts.toString() : '—'}
+            icon={<Bell className="h-5 w-5" />}
+            accentColor="bg-critical text-critical"
+          />
+          <MetricCard
+            title="Critical Cases"
+            value={summary ? summary.criticalCases.toString() : '—'}
+            icon={<AlertTriangle className="h-5 w-5" />}
+            accentColor="bg-critical text-critical"
+          />
+          <MetricCard
+            title="Avg Confidence"
+            value={summary ? `${summary.avgConfidence}%` : '—'}
+            icon={<Activity className="h-5 w-5" />}
+            accentColor="bg-low text-low"
+          />
         </div>
+
+        <AgentTable agents={agents} loading={loading} />
       </main>
     </div>
   );
