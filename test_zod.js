@@ -1,6 +1,6 @@
 const { z } = require('zod');
 
-const API_BASE_URL = 'http://127.0.0.1:8000/api/v1';
+const API_BASE_URL = 'https://super-agent-backend-u4mp.onrender.com/';
 
 const providerIdSchema = z.enum(['BKASH', 'NAGAD', 'ROCKET']);
 const decimalSchema = z.coerce.number();

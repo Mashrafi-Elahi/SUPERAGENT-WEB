@@ -200,6 +200,32 @@ const agentDirectory: Record<string, { name: string; area: string }> = {
   AG006: { name: 'Bondor Bazar Agent', area: 'Bondor Bazar' },
 };
 
+function scopedMockAgents(scope?: ViewerScope): DashboardAgent[] {
+  if (scope?.viewerRole === 'AGENT' && scope.viewerAgentId) {
+    return mockAgents.filter((agent) => agent.id === scope.viewerAgentId);
+  }
+  if (scope?.viewerRole === 'FIELD_OFFICER' && scope.viewerArea) {
+    return mockAgents.filter((agent) => agent.area === scope.viewerArea);
+  }
+  return mockAgents;
+}
+
+function fallbackSummary(scope?: ViewerScope): DashboardSummary {
+  const agents = scopedMockAgents(scope);
+  return {
+    totalAgents: agents.length,
+    activeAlerts: agents.reduce((total, agent) => total + agent.alerts, 0),
+    criticalCases: agents.filter((agent) => agent.alerts > 1).length,
+    avgConfidence: agents.length
+      ? Math.round(agents.reduce((total, agent) => total + Math.max(...Object.values(agent.providers).map((provider) => provider.confidence)), 0) / agents.length * 100)
+      : 0,
+    staleFeeds: agents.flatMap((agent) => Object.values(agent.providers)).filter((provider) => provider.dataQuality === 'stale').length,
+    missingFeeds: agents.flatMap((agent) => Object.values(agent.providers)).filter((provider) => provider.dataQuality === 'missing').length,
+    conflictingFeeds: agents.flatMap((agent) => Object.values(agent.providers)).filter((provider) => provider.dataQuality === 'conflicting').length,
+    fallbackRequired: agents.some((agent) => Object.values(agent.providers).some((provider) => provider.dataQuality !== 'fresh')),
+  };
+}
+
 async function readJson<T>(
   path: string,
   schema: z.ZodType<T>,
@@ -337,16 +363,7 @@ export async function getDashboardSummary(scope?: ViewerScope): Promise<Dashboar
     : balances.reduce((total, balance) => total + balance.warnings.length, 0);
 
   if (balances.length === 0) {
-    return {
-      totalAgents: mockAgents.length,
-      activeAlerts: mockAgents.reduce((total, agent) => total + agent.alerts, 0),
-      criticalCases: 2,
-      avgConfidence: 72,
-      staleFeeds: 0,
-      missingFeeds: 0,
-      conflictingFeeds: 0,
-      fallbackRequired: false,
-    };
+    return fallbackSummary(scope);
   }
 
   return {
@@ -366,7 +383,7 @@ export async function getAgents(scope?: ViewerScope): Promise<DashboardAgent[]> 
   const feeds = dataQuality?.feeds ?? [];
 
   if (balances.length === 0) {
-    return mockAgents;
+    return scopedMockAgents(scope);
   }
 
   return balances.map((balance) => mapAgent(balance, feeds, liquidity));
@@ -376,17 +393,8 @@ export async function getDashboardData(scope?: ViewerScope): Promise<{ agents: D
   const [balances, dataQuality, liquidity] = await Promise.all([getBalances(scope), getDataQualitySummary(scope), getLiquiditySummary(scope)]);
   if (balances.length === 0) {
     return {
-      agents: mockAgents,
-      summary: {
-        totalAgents: mockAgents.length,
-        activeAlerts: mockAgents.reduce((total, agent) => total + agent.alerts, 0),
-        criticalCases: 2,
-        avgConfidence: 72,
-        staleFeeds: 0,
-        missingFeeds: 0,
-        conflictingFeeds: 0,
-        fallbackRequired: false,
-      },
+      agents: scopedMockAgents(scope),
+      summary: fallbackSummary(scope),
       source: 'mock-fallback',
     };
   }

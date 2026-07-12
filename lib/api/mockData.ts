@@ -71,7 +71,7 @@ const provider = (
 
 export const mockAgents: MockAgent[] = [
   {
-    id: 'AGT-1042', name: 'Zindabazar Digital Point', area: 'Zindabazar', physicalCash: 84_500, alerts: 2,
+    id: 'AG001', name: 'Zindabazar Digital Point', area: 'Zindabazar', physicalCash: 84_500, alerts: 2,
     status: 'Continue + Shadow Review',
     providers: {
       bkash: provider('bkash', 145_000, 'fresh', '2026-06-18T16:35:00+06:00', 12_400, 45, '5:20 PM', 0.82, 'Review demand and contact the assigned field officer through an approved channel.'),
@@ -80,7 +80,7 @@ export const mockAgents: MockAgent[] = [
     },
   },
   {
-    id: 'AGT-1043', name: 'Amberkhana Agent Corner', area: 'Amberkhana', physicalCash: 12_000, alerts: 2,
+    id: 'AG002', name: 'Amberkhana Agent Corner', area: 'Amberkhana', physicalCash: 12_000, alerts: 2,
     status: 'Continue Staged + Fast Review',
     providers: {
       bkash: provider('bkash', 254_000, 'fresh', '2026-06-18T16:35:00+06:00', 8_200, 90, null, 0.90, 'Continue normal service while the shared cash position is reviewed.'),
@@ -89,7 +89,7 @@ export const mockAgents: MockAgent[] = [
     },
   },
   {
-    id: 'AGT-1044', name: 'Mirabazar Mobile Banking', area: 'Mirabazar', physicalCash: 110_000, alerts: 1,
+    id: 'AG003', name: 'Mirabazar Mobile Banking', area: 'Mirabazar', physicalCash: 110_000, alerts: 1,
     status: 'Continue Staged + Fast Review',
     providers: {
       bkash: provider('bkash', 5_000, 'conflicting', '2026-06-18T16:35:00+06:00', 0, null, null, 0.30, 'Avoid a strong recommendation until the provider-reported and calculated balances are reconciled.'),
@@ -98,7 +98,7 @@ export const mockAgents: MockAgent[] = [
     },
   },
   {
-    id: 'AGT-1045', name: 'Zindabazar Express', area: 'Zindabazar', physicalCash: 24_500, alerts: 1,
+    id: 'AG004', name: 'Zindabazar Express', area: 'Zindabazar', physicalCash: 24_500, alerts: 1,
     status: 'Continue + Shadow Review',
     providers: {
       bkash: provider('bkash', 12_000, 'fresh', '2026-06-18T16:35:00+06:00', 4_500, 18, '4:53 PM', 0.78, 'Review the projected shortage with the assigned provider operations role.'),
@@ -107,7 +107,7 @@ export const mockAgents: MockAgent[] = [
     },
   },
   {
-    id: 'AGT-1046', name: 'Subidbazar Finance Point', area: 'Subidbazar', physicalCash: 95_000, alerts: 0,
+    id: 'AG005', name: 'Subidbazar Finance Point', area: 'Subidbazar', physicalCash: 95_000, alerts: 0,
     status: 'Continue Normal',
     providers: {
       bkash: provider('bkash', 75_000, 'fresh', '2026-06-18T16:35:00+06:00', 3_200, 150, null, 0.94, 'Continue normal service.'),
@@ -116,7 +116,7 @@ export const mockAgents: MockAgent[] = [
     },
   },
   {
-    id: 'AGT-1047', name: 'Bondor Bazar Agent', area: 'Bondor Bazar', physicalCash: 5_000, alerts: 1,
+    id: 'AG006', name: 'Bondor Bazar Agent', area: 'Bondor Bazar', physicalCash: 5_000, alerts: 1,
     status: 'Continue Staged + Fast Review',
     providers: {
       bkash: provider('bkash', 15_000, 'fresh', '2026-06-18T16:35:00+06:00', 4_900, 14, '4:49 PM', 0.84, 'Contact the assigned field officer to review approved support options.'),
@@ -152,7 +152,7 @@ export interface MockAlert {
 
 export const mockAlerts: MockAlert[] = [
   {
-    id: 'ALT-001', title: 'Shared Cash Pressure', severity: 'critical', provider: 'bkash', agentId: 'AGT-1042',
+    id: 'ALT-001', title: 'Shared Cash Pressure', severity: 'critical', provider: 'bkash', agentId: 'AG001',
     agentName: 'Zindabazar Digital Point', timestamp: '4:35 PM', confidence: 0.82, dataStatus: 'fresh', owner: 'Field Officer',
     messageBn: 'বর্তমান সিমুলেটেড লেনদেনের ধারা অনুযায়ী বিকেল ৫টা ২০ মিনিটের মধ্যে নগদ অর্থের চাপ তৈরি হতে পারে। সবচেয়ে বেশি চাপ আসছে বিকাশ ক্যাশ-আউট থেকে।',
     messageEn: 'Based on the current simulated transaction pattern, the outlet may run out of physical cash by 5:20 PM. Most pressure is associated with bKash cash-out demand.',
@@ -161,7 +161,7 @@ export const mockAlerts: MockAlert[] = [
     nextStep: 'Review projected demand and contact the assigned field officer through an approved support channel.',
   },
   {
-    id: 'ALT-002', title: 'Unusual Transaction Pattern', severity: 'high', provider: 'nagad', agentId: 'AGT-1042',
+    id: 'ALT-002', title: 'Unusual Transaction Pattern', severity: 'high', provider: 'nagad', agentId: 'AG001',
     agentName: 'Zindabazar Digital Point', timestamp: '4:31 PM', confidence: 0.74, dataStatus: 'fresh', owner: 'Risk Reviewer',
     messageBn: 'গত ১২ মিনিটে লেনদেনের গতি স্বাভাবিকের তুলনায় বেড়েছে। কয়েকটি লেনদেনের পরিমাণ প্রায় একই এবং অল্প কয়েকটি সিমুলেটেড অ্যাকাউন্ট থেকে অনুরোধ এসেছে। এটি মানব পর্যালোচনা প্রয়োজন।',
     messageEn: 'During the 12-minute analysis window, transaction velocity increased. Several near-identical requests came from a small group of synthetic accounts and require human review.',
@@ -170,7 +170,7 @@ export const mockAlerts: MockAlert[] = [
     nextStep: 'Review supporting evidence and operational context before any major response.',
   },
   {
-    id: 'ALT-003', title: 'Provider Feed Missing', severity: 'medium', provider: 'rocket', agentId: 'AGT-1043',
+    id: 'ALT-003', title: 'Provider Feed Missing', severity: 'medium', provider: 'rocket', agentId: 'AG002',
     agentName: 'Amberkhana Agent Corner', timestamp: '4:30 PM', confidence: 0.20, dataStatus: 'missing', owner: 'Provider Operations',
     messageBn: 'রকেট সিমুলেটেড ফিড থেকে ৩০ মিনিটের বেশি সময় কোনো সিগন্যাল পাওয়া যায়নি। নির্ভুল পূর্বাভাস না দিয়ে ম্যানুয়াল যাচাই প্রয়োজন।',
     messageEn: 'No simulated Rocket feed signal has arrived for more than 30 minutes. A precise forecast is withheld until manual verification.',
@@ -179,7 +179,7 @@ export const mockAlerts: MockAlert[] = [
     nextStep: 'Verify the provider balance through an approved channel and use only the last verified value as context.',
   },
   {
-    id: 'ALT-004', title: 'Provider Balance Conflict', severity: 'critical', provider: 'bkash', agentId: 'AGT-1044',
+    id: 'ALT-004', title: 'Provider Balance Conflict', severity: 'critical', provider: 'bkash', agentId: 'AG003',
     agentName: 'Mirabazar Mobile Banking', timestamp: '4:35 PM', confidence: 0.30, dataStatus: 'conflicting', owner: 'Provider Operations',
     messageBn: 'বিকাশ সিমুলেটেড ফিডের ব্যালেন্স এবং স্থানীয় হিসাবের মধ্যে অমিল পাওয়া গেছে। সমন্বয় না হওয়া পর্যন্ত শক্তিশালী সুপারিশ দেখানো হচ্ছে না।',
     messageEn: 'The simulated bKash feed conflicts with the locally calculated balance. Strong recommendations are withheld until reconciliation.',
@@ -224,7 +224,7 @@ export interface MockCase {
 
 export const mockCases: MockCase[] = [
   {
-    id: 'CASE-001', alertId: 'ALT-001', provider: 'SHARED', outlet: 'Zindabazar Digital Point (AGT-1042)', area: 'Zindabazar', severity: 'critical',
+    id: 'CASE-001', alertId: 'ALT-001', provider: 'SHARED', outlet: 'Zindabazar Digital Point (AG001)', area: 'Zindabazar', severity: 'critical',
     owner: 'Field Officer', assignedTo: 'Territory Officer — Zindabazar', receiver: 'Field Officer queue',
     nextStep: 'Review projected demand and coordinate approved liquidity-support options with the agent.', ackStatus: 'Under Review', escalationLevel: 2,
     resolutionStatus: 'Approved support options under review', timestamp: '4:35 PM', confidence: 0.82,
@@ -233,7 +233,7 @@ export const mockCases: MockCase[] = [
     history: [{ timestamp: '4:35 PM', actor: 'System', action: 'Case created and routed to Field Officer.' }, { timestamp: '4:38 PM', actor: 'Field Officer', action: 'Acknowledged and started routine review.' }],
   },
   {
-    id: 'CASE-002', alertId: 'ALT-002', provider: 'NAGAD', outlet: 'Zindabazar Digital Point (AGT-1042)', area: 'Zindabazar', severity: 'high',
+    id: 'CASE-002', alertId: 'ALT-002', provider: 'NAGAD', outlet: 'Zindabazar Digital Point (AG001)', area: 'Zindabazar', severity: 'high',
     owner: 'Risk Reviewer', assignedTo: 'Provider Risk Review Queue', receiver: 'Nagad Provider Operations',
     nextStep: 'Review the synthetic transaction evidence and contextual demand; do not make an automated account decision.', ackStatus: 'Acknowledged', escalationLevel: 2,
     resolutionStatus: 'Human review pending', timestamp: '4:31 PM', confidence: 0.74,
@@ -242,7 +242,7 @@ export const mockCases: MockCase[] = [
     history: [{ timestamp: '4:31 PM', actor: 'System', action: 'Pattern routed for provider-specific review.' }, { timestamp: '4:34 PM', actor: 'Risk Reviewer', action: 'Marked as acknowledged; evidence review pending.' }],
   },
   {
-    id: 'CASE-003', alertId: 'ALT-003', provider: 'ROCKET', outlet: 'Amberkhana Agent Corner (AGT-1043)', area: 'Amberkhana', severity: 'medium',
+    id: 'CASE-003', alertId: 'ALT-003', provider: 'ROCKET', outlet: 'Amberkhana Agent Corner (AG002)', area: 'Amberkhana', severity: 'medium',
     owner: 'Provider Operations', assignedTo: 'Rocket Operations Queue', receiver: 'Rocket Provider Operations',
     nextStep: 'Check simulated feed health and ask the agent to verify the provider balance through an approved channel.', ackStatus: 'Assigned', escalationLevel: 1,
     resolutionStatus: 'Data-quality review', timestamp: '4:30 PM', confidence: 0.20,

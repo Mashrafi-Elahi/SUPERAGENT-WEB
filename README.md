@@ -75,3 +75,7 @@ npm run build
 ## Backend integration
 
 The dashboard reads balances, feed quality and liquidity forecasts from the FastAPI service. Alerts, case queues, case workflow actions and audit entries are also backed by the service when it is running. The data-source badges identify when a route is using its synthetic fallback.
+
+## Judge defense
+
+See `DEFENSE_GUIDE.md` for the code map, short architecture answers, API snippets, workflow state machine, validation evidence and honest deployment limitations.

@@ -150,6 +150,33 @@ function displayStatus(status: z.infer<typeof caseStatusSchema>): CaseStatus {
   return statuses[status];
 }
 
+function scopedMockAlerts(scope?: ViewerScope): MockAlert[] {
+  if (scope?.viewerRole === 'AGENT' && scope.viewerAgentId) {
+    return mockAlerts.filter((alert) => alert.agentId === scope.viewerAgentId);
+  }
+  if (scope?.viewerRole === 'FIELD_OFFICER' && scope.viewerArea) {
+    const scopedAgentIds = new Set(mockCases.filter((item) => item.area === scope.viewerArea).map((item) => item.outlet.match(/AG\d{3}/)?.[0]));
+    return mockAlerts.filter((alert) => scopedAgentIds.has(alert.agentId));
+  }
+  if (scope?.viewerRole === 'PROVIDER_OPERATIONS' && scope.viewerProviderId) {
+    return mockAlerts.filter((alert) => alert.provider.toUpperCase() === scope.viewerProviderId);
+  }
+  return mockAlerts;
+}
+
+function scopedMockCases(scope?: ViewerScope): MockCase[] {
+  if (scope?.viewerRole === 'AGENT' && scope.viewerAgentId) {
+    return mockCases.filter((item) => item.outlet.includes(scope.viewerAgentId!));
+  }
+  if (scope?.viewerRole === 'FIELD_OFFICER' && scope.viewerArea) {
+    return mockCases.filter((item) => item.area === scope.viewerArea);
+  }
+  if (scope?.viewerRole === 'PROVIDER_OPERATIONS' && scope.viewerProviderId) {
+    return mockCases.filter((item) => item.provider === scope.viewerProviderId);
+  }
+  return mockCases;
+}
+
 function formatTime(value: string) {
   return new Date(value).toLocaleTimeString('en-BD', { hour: 'numeric', minute: '2-digit' });
 }
@@ -276,7 +303,7 @@ export async function getAlerts(language: Language = 'en', scope?: ViewerScope):
       source: 'backend-api',
     };
   }
-  return { data: mockAlerts, source: 'mock-fallback' };
+  return { data: scopedMockAlerts(scope), source: 'mock-fallback' };
 }
 
 export async function getCases(language: Language = 'en', includeExplanations = true, scope?: ViewerScope): Promise<ApiResult<MockCase[]>> {
@@ -290,7 +317,7 @@ export async function getCases(language: Language = 'en', includeExplanations = 
       source: 'backend-api',
     };
   }
-  return { data: mockCases, source: 'mock-fallback' };
+  return { data: scopedMockCases(scope), source: 'mock-fallback' };
 }
 
 export async function acknowledgeCase(caseId: string, actor: CaseActor): Promise<{ ok: boolean; error?: string }> {
@@ -396,7 +423,15 @@ export function saveDemoCases(_cases: MockCase[]): void {
 
 export async function getAuditTrail(scope?: ViewerScope): Promise<ApiResult<typeof mockAuditTrail>> {
   const cases = await apiJson(withViewerScope('/cases/queue', scope), z.array(coordinationCaseSchema));
-  if (!cases) return { data: mockAuditTrail, source: 'mock-fallback' };
+  if (!cases) return {
+    data: scopedMockCases(scope).flatMap((item) => item.history.map((history, index) => ({
+      id: `${item.id}-AUD-${index + 1}`,
+      caseId: item.id,
+      provider: item.provider,
+      ...history,
+    })),
+    source: 'mock-fallback',
+  };
 
   return {
     data: cases.flatMap((caseItem) => caseItem.history.map((entry) => ({
