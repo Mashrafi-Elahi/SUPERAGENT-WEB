@@ -23,10 +23,10 @@ MFSA is a responsible decision-support prototype for multi-provider mobile finan
 
 ## API-first with safe fallback
 
-Set the backend URL in `.env.local`:
+The frontend proxies backend requests through Next.js to avoid browser CORS differences between local and Vercel environments. Set the server-side backend URL in `.env.local`:
 
 ```bash
-NEXT_PUBLIC_API_BASE_URL=https://super-agent-backend-u4mp.onrender.com/api/v1
+BACKEND_URL=https://super-agent-backend-u4mp.onrender.com/
 ```
 
 The frontend keeps these backend contracts open:

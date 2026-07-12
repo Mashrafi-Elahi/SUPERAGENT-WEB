@@ -9,9 +9,7 @@ import {
 } from './mockData';
 import type { Language } from '../i18n';
 import { withViewerScope, type CaseActor, type ViewerRole, type ViewerScope } from '../viewerProfile';
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? 'https://super-agent-backend-u4mp.onrender.com/api/v1';
+import { API_BASE_URL } from './baseUrl';
 
 export type DataSource = 'backend-api' | 'mock-fallback';
 

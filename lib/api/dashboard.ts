@@ -1,9 +1,7 @@
 import { z } from 'zod';
 import { mockAgents, type MockAgent, type ProviderKey as MockProviderKey } from './mockData';
 import { withViewerScope, type ViewerScope } from '../viewerProfile';
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? 'https://super-agent-backend-u4mp.onrender.com/api/v1';
+import { API_BASE_URL } from './baseUrl';
 
 const providerIds = ['BKASH', 'NAGAD', 'ROCKET'] as const;
 const providerKeys = ['bkash', 'nagad', 'rocket'] as const;
