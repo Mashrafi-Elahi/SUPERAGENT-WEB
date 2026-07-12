@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { mockAgents, type MockAgent, type ProviderKey as MockProviderKey } from './mockData';
+import { withViewerScope, type ViewerScope } from '../viewerProfile';
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? 'http://127.0.0.1:8000/api/v1';
@@ -59,6 +60,8 @@ const dataQualitySummarySchema = z.object({
 
 const liquidityResourceSchema = z.object({
   provider_id: providerIdSchema.nullable(),
+  status: z.enum(['SAFE', 'WATCH', 'CRITICAL', 'DEPLETED', 'INSUFFICIENT_DATA']),
+  current_balance: decimalSchema,
   net_depletion_per_minute: decimalSchema,
   minutes_to_safety_threshold: z.number().nullable(),
   safety_threshold_at: z.string().nullable(),
@@ -68,6 +71,8 @@ const liquidityResourceSchema = z.object({
 
 const agentLiquiditySchema = z.object({
   agent_id: z.string(),
+  overall_status: z.enum(['SAFE', 'WATCH', 'CRITICAL', 'DEPLETED', 'INSUFFICIENT_DATA']),
+  shared_cash: liquidityResourceSchema,
   provider_forecasts: z.array(liquidityResourceSchema),
 });
 
@@ -148,6 +153,10 @@ const summarySchema = z.object({
   activeAlerts: z.number(),
   criticalCases: z.number(),
   avgConfidence: z.number(),
+  staleFeeds: z.number(),
+  missingFeeds: z.number(),
+  conflictingFeeds: z.number(),
+  fallbackRequired: z.boolean(),
 });
 
 export const dashboardSummaryResponseSchema = summarySchema;
@@ -214,16 +223,16 @@ async function readJson<T>(
   }
 }
 
-async function getBalances(): Promise<AgentBalance[]> {
-  return (await readJson('/balances', z.array(agentBalanceSchema))) ?? [];
+async function getBalances(scope?: ViewerScope): Promise<AgentBalance[]> {
+  return (await readJson(withViewerScope('/balances', scope), z.array(agentBalanceSchema))) ?? [];
 }
 
-async function getDataQualitySummary(): Promise<DataQualitySummary | null> {
-  return readJson('/data-quality', dataQualitySummarySchema);
+async function getDataQualitySummary(scope?: ViewerScope): Promise<DataQualitySummary | null> {
+  return readJson(withViewerScope('/data-quality', scope), dataQualitySummarySchema);
 }
 
-async function getLiquiditySummary(): Promise<LiquiditySummary | null> {
-  return readJson('/liquidity', liquiditySummarySchema);
+async function getLiquiditySummary(scope?: ViewerScope): Promise<LiquiditySummary | null> {
+  return readJson(withViewerScope('/liquidity', scope), liquiditySummarySchema);
 }
 
 async function getReplayStatus() {
@@ -293,6 +302,7 @@ function mapAgent(agentBalance: AgentBalance, feeds: FeedHealth[], liquidity: Li
       .filter((forecast) => forecast.provider_id !== null)
       .map((forecast) => [forecast.provider_id!, forecast]) ?? [],
   );
+  const liquidityForecast = liquidity?.agents.find((agent) => agent.agent_id === agentBalance.agent_id);
 
   return {
     id: agentBalance.agent_id,
@@ -306,13 +316,20 @@ function mapAgent(agentBalance: AgentBalance, feeds: FeedHealth[], liquidity: Li
     },
     alerts: agentFeeds.filter((feed) => feed.status !== 'HEALTHY').length + agentBalance.warnings.length,
     status: buildAgentStatus(agentFeeds),
+    sharedCashForecast: liquidityForecast ? {
+      status: liquidityForecast.shared_cash.status,
+      capacityMinutes: liquidityForecast.shared_cash.minutes_to_safety_threshold,
+      projectedShortageTime: liquidityForecast.shared_cash.safety_threshold_at,
+      confidence: liquidityForecast.shared_cash.confidence,
+      recommendation: liquidityForecast.shared_cash.recommendation,
+    } : undefined,
   };
 }
 
-export async function getDashboardSummary(): Promise<DashboardSummary> {
+export async function getDashboardSummary(scope?: ViewerScope): Promise<DashboardSummary> {
   const [balances, dataQuality] = await Promise.all([
-    getBalances(),
-    getDataQualitySummary(),
+    getBalances(scope),
+    getDataQualitySummary(scope),
   ]);
 
   const activeAlerts = dataQuality
@@ -325,6 +342,10 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
       activeAlerts: mockAgents.reduce((total, agent) => total + agent.alerts, 0),
       criticalCases: 2,
       avgConfidence: 72,
+      staleFeeds: 0,
+      missingFeeds: 0,
+      conflictingFeeds: 0,
+      fallbackRequired: false,
     };
   }
 
@@ -333,11 +354,15 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     activeAlerts,
     criticalCases: dataQuality ? dataQuality.missing + dataQuality.conflicting : 0,
     avgConfidence: dataQuality ? Math.round(dataQuality.average_confidence * 100) : 0,
+    staleFeeds: dataQuality?.stale ?? 0,
+    missingFeeds: dataQuality?.missing ?? 0,
+    conflictingFeeds: dataQuality?.conflicting ?? 0,
+    fallbackRequired: dataQuality?.fallback_required ?? false,
   };
 }
 
-export async function getAgents(): Promise<DashboardAgent[]> {
-  const [balances, dataQuality, liquidity] = await Promise.all([getBalances(), getDataQualitySummary(), getLiquiditySummary()]);
+export async function getAgents(scope?: ViewerScope): Promise<DashboardAgent[]> {
+  const [balances, dataQuality, liquidity] = await Promise.all([getBalances(scope), getDataQualitySummary(scope), getLiquiditySummary(scope)]);
   const feeds = dataQuality?.feeds ?? [];
 
   if (balances.length === 0) {
@@ -347,8 +372,8 @@ export async function getAgents(): Promise<DashboardAgent[]> {
   return balances.map((balance) => mapAgent(balance, feeds, liquidity));
 }
 
-export async function getDashboardData(): Promise<{ agents: DashboardAgent[]; summary: DashboardSummary; source: 'backend-api' | 'mock-fallback' }> {
-  const [balances, dataQuality, liquidity] = await Promise.all([getBalances(), getDataQualitySummary(), getLiquiditySummary()]);
+export async function getDashboardData(scope?: ViewerScope): Promise<{ agents: DashboardAgent[]; summary: DashboardSummary; source: 'backend-api' | 'mock-fallback' }> {
+  const [balances, dataQuality, liquidity] = await Promise.all([getBalances(scope), getDataQualitySummary(scope), getLiquiditySummary(scope)]);
   if (balances.length === 0) {
     return {
       agents: mockAgents,
@@ -357,6 +382,10 @@ export async function getDashboardData(): Promise<{ agents: DashboardAgent[]; su
         activeAlerts: mockAgents.reduce((total, agent) => total + agent.alerts, 0),
         criticalCases: 2,
         avgConfidence: 72,
+        staleFeeds: 0,
+        missingFeeds: 0,
+        conflictingFeeds: 0,
+        fallbackRequired: false,
       },
       source: 'mock-fallback',
     };
@@ -370,6 +399,10 @@ export async function getDashboardData(): Promise<{ agents: DashboardAgent[]; su
       activeAlerts: dataQuality ? dataQuality.stale + dataQuality.missing + dataQuality.conflicting : balances.reduce((total, balance) => total + balance.warnings.length, 0),
       criticalCases: dataQuality ? dataQuality.missing + dataQuality.conflicting : 0,
       avgConfidence: dataQuality ? Math.round(dataQuality.average_confidence * 100) : 0,
+      staleFeeds: dataQuality?.stale ?? 0,
+      missingFeeds: dataQuality?.missing ?? 0,
+      conflictingFeeds: dataQuality?.conflicting ?? 0,
+      fallbackRequired: dataQuality?.fallback_required ?? false,
     },
     source: 'backend-api',
   };

@@ -28,6 +28,14 @@ export interface ProviderView {
   safeFallback: string;
 }
 
+export interface SharedCashForecast {
+  status: 'SAFE' | 'WATCH' | 'CRITICAL' | 'DEPLETED' | 'INSUFFICIENT_DATA';
+  capacityMinutes: number | null;
+  projectedShortageTime: string | null;
+  confidence: number;
+  recommendation: string;
+}
+
 export interface MockAgent {
   id: string;
   name: string;
@@ -36,6 +44,7 @@ export interface MockAgent {
   providers: Record<ProviderKey, ProviderView>;
   alerts: number;
   status: 'Continue Normal' | 'Continue + Shadow Review' | 'Continue Staged + Fast Review';
+  sharedCashForecast?: SharedCashForecast;
 }
 
 const provider = (
@@ -133,6 +142,12 @@ export interface MockAlert {
   agentName: string;
   timestamp: string;
   dataStatus: DataQuality;
+  incidentType?: string;
+  priorityLabel?: string;
+  receiverRole?: string;
+  alternativeExplanations?: string;
+  caseId?: string;
+  caseStatus?: CaseStatus;
 }
 
 export const mockAlerts: MockAlert[] = [
@@ -199,6 +214,12 @@ export interface MockCase {
   evidence: string[];
   confidence: number;
   history: CaseHistoryItem[];
+  responsibleStakeholder?: string;
+  escalationTarget?: string | null;
+  safeFallbackActive?: boolean;
+  safeFallbackReason?: string | null;
+  providerBoundaryNotice?: string;
+  notesList?: Array<{ body: string; author: string; timestamp: string }>;
 }
 
 export const mockCases: MockCase[] = [

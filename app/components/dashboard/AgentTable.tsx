@@ -4,8 +4,9 @@ import { useRouter } from 'next/navigation';
 import { AlertTriangle, ArrowUpRight, MapPin } from 'lucide-react';
 import type { DashboardAgent } from '../../../lib/api/dashboard';
 import { useLanguage } from '../../../lib/i18n';
+import type { ScopedProviderKey } from '../../../lib/viewerProfile';
 
-type AgentTableProps = { agents: DashboardAgent[]; loading?: boolean };
+type AgentTableProps = { agents: DashboardAgent[]; loading?: boolean; visibleProviders?: ScopedProviderKey[] };
 
 const formatCash = (amount: number) => `৳${amount.toLocaleString('en-US')}`;
 
@@ -23,7 +24,13 @@ function ProviderValue({ label, data }: { label: string; data: DashboardAgent['p
   );
 }
 
-export default function AgentTable({ agents, loading = false }: AgentTableProps) {
+const providerLabels: Record<ScopedProviderKey, string> = {
+  bkash: 'bKash',
+  nagad: 'Nagad',
+  rocket: 'Rocket',
+};
+
+export default function AgentTable({ agents, loading = false, visibleProviders = ['bkash', 'nagad', 'rocket'] }: AgentTableProps) {
   const { t } = useLanguage();
   const router = useRouter();
   const openAgent = (id: string) => router.push(`/agents/${id}`);
@@ -46,9 +53,7 @@ export default function AgentTable({ agents, loading = false }: AgentTableProps)
             </div>
             <div className="mt-4 space-y-2 border-t border-bg-border pt-3 text-xs">
               <ProviderValue label={t('sharedCash')} data={{ ...agent.providers.bkash, balance: agent.physicalCash }} />
-              <ProviderValue label="bKash" data={agent.providers.bkash} />
-              <ProviderValue label="Nagad" data={agent.providers.nagad} />
-              <ProviderValue label="Rocket" data={agent.providers.rocket} />
+              {visibleProviders.map((key) => <ProviderValue key={key} label={providerLabels[key]} data={agent.providers[key]} />)}
             </div>
             <div className="mt-3 flex items-center justify-between gap-2"><span className="text-xs text-text-secondary">{agent.status}</span>{agent.alerts > 0 ? <span className="badge-critical">{agent.alerts} {t('alerts')}</span> : <span className="badge-low">{t('ready')}</span>}</div>
           </button>
@@ -59,7 +64,7 @@ export default function AgentTable({ agents, loading = false }: AgentTableProps)
         <div className="overflow-x-auto">
           <table className="min-w-[920px] w-full">
             <thead className="bg-bg-surface/70">
-              <tr>{[t('agent'), t('area'), t('sharedCash'), 'bKash', 'Nagad', 'Rocket', t('alerts'), t('responsePosture')].map((heading) => <th key={heading} className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.12em] text-text-muted">{heading}</th>)}</tr>
+              <tr>{[t('agent'), t('area'), t('sharedCash'), ...visibleProviders.map((key) => providerLabels[key]), t('alerts'), t('responsePosture')].map((heading) => <th key={heading} className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.12em] text-text-muted">{heading}</th>)}</tr>
             </thead>
             <tbody>
               {agents.map((agent) => (
@@ -67,7 +72,7 @@ export default function AgentTable({ agents, loading = false }: AgentTableProps)
                   <td className="px-4 py-4"><div className="font-semibold text-text-primary">{agent.name}</div><div className="mt-0.5 font-mono text-[10px] text-text-muted">{agent.id}</div></td>
                   <td className="px-4 py-4 text-sm text-text-secondary">{agent.area}</td>
                   <td className="px-4 py-4 text-sm font-bold text-text-primary">{formatCash(agent.physicalCash)}</td>
-                  {(['bkash', 'nagad', 'rocket'] as const).map((key) => <td key={key} className="px-4 py-4 text-sm text-text-secondary"><span className="flex items-center gap-2"><QualityDot quality={agent.providers[key].dataQuality} />{agent.providers[key].balance === null ? '—' : formatCash(agent.providers[key].balance!)}</span></td>)}
+                  {visibleProviders.map((key) => <td key={key} className="px-4 py-4 text-sm text-text-secondary"><span className="flex items-center gap-2"><QualityDot quality={agent.providers[key].dataQuality} />{agent.providers[key].balance === null ? '—' : formatCash(agent.providers[key].balance!)}</span></td>)}
                   <td className="px-4 py-4">{agent.alerts ? <span className="badge-critical">{agent.alerts}</span> : <span className="badge-low">0</span>}</td>
                   <td className="px-4 py-4 text-xs font-medium text-text-secondary">{agent.status}</td>
                 </tr>

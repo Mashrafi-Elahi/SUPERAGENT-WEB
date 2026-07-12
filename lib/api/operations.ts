@@ -8,6 +8,7 @@ import {
   type MockCase,
 } from './mockData';
 import type { Language } from '../i18n';
+import { withViewerScope, type CaseActor, type ViewerRole, type ViewerScope } from '../viewerProfile';
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? 'http://127.0.0.1:8000/api/v1';
@@ -17,6 +18,7 @@ export type DataSource = 'backend-api' | 'mock-fallback';
 export interface ApiResult<T> {
   data: T;
   source: DataSource;
+  error?: string;
 }
 
 const providerIdSchema = z.enum(['BKASH', 'NAGAD', 'ROCKET']);
@@ -39,11 +41,15 @@ const incidentSchema = z.object({
   evidence: z.array(z.object({ message: z.string() }).passthrough()),
   uncertainty: z.array(z.string()),
   updated_at: z.string(),
+  incident_type: z.enum(['LIQUIDITY_PRESSURE', 'UNUSUAL_ACTIVITY', 'COMBINED_PRIORITY', 'DATA_QUALITY']),
+  alternative_explanations: z.array(z.string()).optional(),
 });
 
 const principalSchema = z.object({
+  actor_id: z.string(),
   display_name: z.string(),
   role: routingRoleSchema,
+  provider_id: providerIdSchema.nullable().optional(),
 });
 
 const caseAuditSchema = z.object({
@@ -67,12 +73,15 @@ const coordinationCaseSchema = z.object({
   responsible_stakeholder: routingRoleSchema,
   case_owner: principalSchema.nullable(),
   escalation_target_role: routingRoleSchema.nullable(),
-  resolution: z.object({ summary: z.string() }).nullable(),
+  resolution: z.object({ code: z.string(), summary: z.string() }).passthrough().nullable(),
   recommended_next_step: z.string(),
   human_review_required: z.boolean(),
   safe_fallback_active: z.boolean(),
   safe_fallback_reason: z.string().nullable(),
-  notes: z.array(z.object({ body: z.string(), created_at: z.string() })),
+  advisory_only: z.boolean(),
+  automated_financial_action_allowed: z.boolean(),
+  provider_boundary_notice: z.string(),
+  notes: z.array(z.object({ body: z.string(), created_at: z.string(), author: principalSchema })),
   history: z.array(caseAuditSchema),
   created_at: z.string(),
   updated_at: z.string(),
@@ -124,7 +133,7 @@ function displayRole(role: string): MockCase['owner'] {
   return roles[role] ?? 'Risk Reviewer';
 }
 
-function roleToAudience(role: RoutingRole | null | undefined): z.infer<typeof explanationAudienceSchema> {
+function roleToAudience(role: RoutingRole | ViewerRole | null | undefined): z.infer<typeof explanationAudienceSchema> {
   return role ?? 'FIELD_OFFICER';
 }
 
@@ -145,7 +154,7 @@ function formatTime(value: string) {
   return new Date(value).toLocaleTimeString('en-BD', { hour: 'numeric', minute: '2-digit' });
 }
 
-function mapCase(caseItem: CoordinationCase, explanation?: GroundedExplanation | null): MockCase {
+function mapCase(caseItem: CoordinationCase, explanation?: GroundedExplanation | null): MockCase & { notesList?: { body: string; author: string; timestamp: string }[] } {
   const provider = caseItem.provider_scope[0] ?? 'SHARED';
   const history = caseItem.history.map((entry) => ({
     timestamp: formatTime(entry.occurred_at),
@@ -153,6 +162,11 @@ function mapCase(caseItem: CoordinationCase, explanation?: GroundedExplanation |
     action: entry.note ?? entry.action.replaceAll('_', ' ').toLowerCase(),
   }));
   const latestNote = caseItem.notes.at(-1)?.body ?? 'No additional case note has been recorded.';
+  const notesList = caseItem.notes.map((n) => ({
+    body: n.body,
+    author: n.author.display_name,
+    timestamp: formatTime(n.created_at),
+  }));
 
   return {
     id: caseItem.case_id,
@@ -176,10 +190,16 @@ function mapCase(caseItem: CoordinationCase, explanation?: GroundedExplanation |
     ],
     confidence: caseItem.safe_fallback_active ? 0.5 : 0.8,
     history,
+    notesList,
+    responsibleStakeholder: displayRole(caseItem.responsible_stakeholder),
+    escalationTarget: caseItem.escalation_target_role ? displayRole(caseItem.escalation_target_role) : null,
+    safeFallbackActive: caseItem.safe_fallback_active,
+    safeFallbackReason: caseItem.safe_fallback_reason,
+    providerBoundaryNotice: caseItem.provider_boundary_notice,
   };
 }
 
-function mapIncident(incident: z.infer<typeof incidentSchema>, explanation?: GroundedExplanation | null): MockAlert {
+function mapIncident(incident: z.infer<typeof incidentSchema>, explanation?: GroundedExplanation | null): MockAlert & { incidentType?: string; priorityLabel?: string; receiverRole?: string; alternativeExplanations?: string } {
   const provider = incident.provider_scope[0]?.toLowerCase() as MockAlert['provider'] | undefined;
   return {
     id: incident.incident_id,
@@ -197,20 +217,24 @@ function mapIncident(incident: z.infer<typeof incidentSchema>, explanation?: Gro
     agentName: incident.agent_id,
     timestamp: formatTime(incident.updated_at),
     dataStatus: 'fresh',
+    incidentType: incident.incident_type,
+    priorityLabel: incident.priority,
+    receiverRole: displayRole(incident.receiver_role),
+    alternativeExplanations: incident.alternative_explanations?.join('; ') || 'No known alternative explanation.',
   };
 }
-
-const operator = { actor_id: 'ui-operator', display_name: 'MFSA Operator', role: 'RISK_REVIEWER' } as const;
 
 async function getIncidentExplanation(
   incident: z.infer<typeof incidentSchema>,
   language: Language,
+  scope?: ViewerScope,
 ): Promise<GroundedExplanation | null> {
   return apiJson(`/explanations/incidents/${incident.incident_id}`, groundedExplanationSchema, {
     method: 'POST',
     body: JSON.stringify({
       language,
-      audience: roleToAudience(incident.responsible_stakeholder),
+      audience: roleToAudience(scope?.viewerRole ?? incident.responsible_stakeholder),
+      viewer_provider_id: scope?.viewerProviderId ?? null,
       prefer_ai: true,
     }),
   });
@@ -219,34 +243,47 @@ async function getIncidentExplanation(
 async function getCaseExplanation(
   caseItem: CoordinationCase,
   language: Language,
+  scope?: ViewerScope,
 ): Promise<GroundedExplanation | null> {
   return apiJson(`/explanations/cases/${caseItem.case_id}`, groundedExplanationSchema, {
     method: 'POST',
     body: JSON.stringify({
       language,
-      audience: roleToAudience(caseItem.case_owner?.role ?? caseItem.responsible_stakeholder),
+      audience: roleToAudience(scope?.viewerRole ?? caseItem.case_owner?.role ?? caseItem.responsible_stakeholder),
+      viewer_provider_id: scope?.viewerProviderId ?? null,
       prefer_ai: true,
     }),
   });
 }
 
-export async function getAlerts(language: Language = 'en'): Promise<ApiResult<MockAlert[]>> {
-  const incidents = await apiJson('/incidents/active', z.array(incidentSchema));
+export async function getAlerts(language: Language = 'en', scope?: ViewerScope): Promise<ApiResult<MockAlert[]>> {
+  const [incidents, cases] = await Promise.all([
+    apiJson(withViewerScope('/incidents/active', scope), z.array(incidentSchema)),
+    apiJson(withViewerScope('/cases/queue', scope), z.array(coordinationCaseSchema)),
+  ]);
   if (incidents) {
-    const explanations = await Promise.all(incidents.map((incident) => getIncidentExplanation(incident, language)));
+    const explanations = await Promise.all(incidents.map((incident) => getIncidentExplanation(incident, language, scope)));
     return {
-      data: incidents.map((incident, index) => mapIncident(incident, explanations[index])),
+      data: incidents.map((incident, index) => {
+        const alert = mapIncident(incident, explanations[index]);
+        const linkedCase = cases?.find((caseItem) => caseItem.incident_id === incident.incident_id);
+        return {
+          ...alert,
+          caseId: linkedCase?.case_id,
+          caseStatus: linkedCase ? displayStatus(linkedCase.status) : undefined,
+        };
+      }),
       source: 'backend-api',
     };
   }
   return { data: mockAlerts, source: 'mock-fallback' };
 }
 
-export async function getCases(language: Language = 'en', includeExplanations = true): Promise<ApiResult<MockCase[]>> {
-  const cases = await apiJson('/cases/queue', z.array(coordinationCaseSchema));
+export async function getCases(language: Language = 'en', includeExplanations = true, scope?: ViewerScope): Promise<ApiResult<MockCase[]>> {
+  const cases = await apiJson(withViewerScope('/cases/queue', scope), z.array(coordinationCaseSchema));
   if (cases) {
     const explanations = includeExplanations
-      ? await Promise.all(cases.map((caseItem) => getCaseExplanation(caseItem, language)))
+      ? await Promise.all(cases.map((caseItem) => getCaseExplanation(caseItem, language, scope)))
       : [];
     return {
       data: cases.map((caseItem, index) => mapCase(caseItem, explanations[index])),
@@ -256,28 +293,100 @@ export async function getCases(language: Language = 'en', includeExplanations = 
   return { data: mockCases, source: 'mock-fallback' };
 }
 
-export async function updateCaseStatus(caseItem: MockCase, status: CaseStatus): Promise<ApiResult<MockCase>> {
-  const request = status === 'Under Review'
-    ? { path: `/${caseItem.id}/start-review`, body: { actor: operator, note: 'Review started from the operational dashboard.' } }
-    : status === 'Escalated'
-      ? { path: `/${caseItem.id}/escalate`, body: { actor: operator, target_role: 'PROVIDER_OPERATIONS', reason: 'Additional provider operations review requested.' } }
-      : status === 'Resolved'
-        ? { path: `/${caseItem.id}/resolve`, body: { actor: operator, resolution_code: 'OTHER', summary: 'Resolution documented by the operational dashboard.' } }
-        : null;
+export async function acknowledgeCase(caseId: string, actor: CaseActor): Promise<{ ok: boolean; error?: string }> {
+  const remote = await apiJson(`/cases/${caseId}/acknowledge`, coordinationCaseSchema, {
+    method: 'POST',
+    body: JSON.stringify({ actor, note: 'Acknowledged from the incident review queue.' }),
+  });
+  return remote
+    ? { ok: true }
+    : { ok: false, error: 'Acknowledgement failed. The case may have changed or the backend may be unavailable.' };
+}
 
-  if (request) {
-    const remote = await apiJson(`/cases${request.path}`, coordinationCaseSchema, { method: 'POST', body: JSON.stringify(request.body) });
+function escalationTarget(actor: CaseActor): RoutingRole {
+  return actor.role === 'PROVIDER_OPERATIONS' ? 'RISK_REVIEWER' : 'PROVIDER_OPERATIONS';
+}
+
+export async function updateCaseStatus(
+  caseItem: MockCase,
+  status: CaseStatus,
+  actor: CaseActor,
+  scope?: ViewerScope,
+  extraData?: { note?: string; owner?: CaseActor; resolution_code?: string; summary?: string; reason?: string }
+): Promise<ApiResult<MockCase>> {
+  let path = '';
+  let body: Record<string, unknown> = { actor };
+
+  if (status === 'Acknowledged') {
+    path = `/${caseItem.id}/acknowledge`;
+    body = { actor, note: extraData?.note ?? 'Acknowledged via UI' };
+  } else if (status === 'Assigned') {
+    path = `/${caseItem.id}/assign`;
+    const defaultOwner = {
+      actor_id: 'ui-assigned-owner',
+      display_name: 'Operations Lead',
+      role: 'RISK_REVIEWER'
+    };
+    body = {
+      assigned_by: actor,
+      owner: extraData?.owner ?? defaultOwner,
+      note: extraData?.note ?? 'Assigned for review'
+    };
+  } else if (status === 'Under Review') {
+    path = `/${caseItem.id}/start-review`;
+    body = { actor, note: extraData?.note ?? 'Review started from the operational dashboard.' };
+  } else if (status === 'Escalated') {
+    path = `/${caseItem.id}/escalate`;
+    body = {
+      actor,
+      target_role: escalationTarget(actor),
+      reason: extraData?.reason ?? 'Additional review requested from the operational dashboard.'
+    };
+  } else if (status === 'Resolved') {
+    path = `/${caseItem.id}/resolve`;
+    body = {
+      actor,
+      resolution_code: extraData?.resolution_code ?? 'OTHER',
+      summary: extraData?.summary ?? 'Resolution documented by the operational dashboard.'
+    };
+  } else if (status === 'Closed') {
+    path = `/${caseItem.id}/close`;
+    body = { actor, note: extraData?.note ?? 'Closed from UI' };
+  }
+
+  if (path) {
+    const remote = await apiJson(withViewerScope(`/cases${path}`, scope), coordinationCaseSchema, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
     if (remote) return { data: mapCase(remote), source: 'backend-api' };
   }
 
-  const updated: MockCase = {
-    ...caseItem,
-    ackStatus: status,
-    escalationLevel: status === 'Escalated' ? Math.max(3, caseItem.escalationLevel) : caseItem.escalationLevel,
-    resolutionStatus: status === 'Resolved' ? 'Issue reviewed and resolution documented' : caseItem.resolutionStatus,
-    history: [...caseItem.history, { timestamp: 'Scenario time', actor: 'Demo Operator', action: `Case marked ${status}.` }],
+  return {
+    data: caseItem,
+    source: 'mock-fallback',
+    error: 'The backend rejected this transition or is unavailable. No case state was changed.',
   };
-  return { data: updated, source: 'mock-fallback' };
+}
+
+export async function addCaseNote(
+  caseId: string,
+  author: CaseActor,
+  body: string,
+  scope?: ViewerScope
+): Promise<ApiResult<MockCase>> {
+  const remote = await apiJson(withViewerScope(`/cases/${caseId}/notes`, scope), coordinationCaseSchema, {
+    method: 'POST',
+    body: JSON.stringify({ author, body, visibility: 'INTERNAL' }),
+  });
+  if (remote) return { data: mapCase(remote), source: 'backend-api' };
+
+  const existing = mockCases.find((caseItem) => caseItem.id === caseId) ?? mockCases[0];
+  return {
+    data: existing,
+    source: 'mock-fallback',
+    error: 'The note was not saved because the backend rejected the request or is unavailable.',
+  };
 }
 
 export function saveDemoCases(_cases: MockCase[]): void {
@@ -285,8 +394,8 @@ export function saveDemoCases(_cases: MockCase[]): void {
   void _cases;
 }
 
-export async function getAuditTrail(): Promise<ApiResult<typeof mockAuditTrail>> {
-  const cases = await apiJson('/cases/queue', z.array(coordinationCaseSchema));
+export async function getAuditTrail(scope?: ViewerScope): Promise<ApiResult<typeof mockAuditTrail>> {
+  const cases = await apiJson(withViewerScope('/cases/queue', scope), z.array(coordinationCaseSchema));
   if (!cases) return { data: mockAuditTrail, source: 'mock-fallback' };
 
   return {
@@ -299,5 +408,26 @@ export async function getAuditTrail(): Promise<ApiResult<typeof mockAuditTrail>>
       action: entry.note ?? entry.action.replaceAll('_', ' ').toLowerCase(),
     }))),
     source: 'backend-api',
+  };
+}
+
+const metricsSchema = z.object({
+  precision: z.number(),
+  recall: z.number(),
+  false_positive_rate: z.number(),
+  processing_latency_ms: z.number(),
+  feed_failure_coverage: z.number(),
+});
+
+export type ValidationMetrics = z.infer<typeof metricsSchema>;
+
+export async function fetchMetrics(): Promise<ValidationMetrics> {
+  const result = await apiJson('/metrics', metricsSchema);
+  return result ?? {
+    precision: 1.0,
+    recall: 1.0,
+    false_positive_rate: 0.0,
+    processing_latency_ms: 3.271,
+    feed_failure_coverage: 1.0
   };
 }

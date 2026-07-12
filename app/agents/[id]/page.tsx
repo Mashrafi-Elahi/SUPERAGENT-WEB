@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { use, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, CheckCircle2, MapPin, ShieldCheck, Store } from 'lucide-react';
 import Sidebar from '../../components/layout/Sidebar';
@@ -13,23 +13,26 @@ import { getAgents, type DashboardAgent } from '../../../lib/api/dashboard';
 import { getAlerts, getCases } from '../../../lib/api/operations';
 import { mockAgents, mockAlerts, mockCases, type MockAlert, type MockCase } from '../../../lib/api/mockData';
 import { useLanguage } from '../../../lib/i18n';
+import { useViewerProfile, visibleProviderKeys } from '../../../lib/viewerProfile';
 
 export default function AgentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { language, t } = useLanguage();
+  const profile = useViewerProfile();
   const { id } = use(params);
   const initialAgent = mockAgents.find((item) => item.id === id) ?? mockAgents[0];
   const [agent, setAgent] = useState<DashboardAgent>(initialAgent);
   const [alerts, setAlerts] = useState<MockAlert[]>(mockAlerts.filter((item) => item.agentId === initialAgent.id));
   const [cases, setCases] = useState<MockCase[]>(mockCases.filter((item) => item.outlet.includes(initialAgent.id)));
+  const visibleProviders = useMemo(() => visibleProviderKeys(profile.scope), [profile.scope]);
 
   useEffect(() => {
-    Promise.all([getAgents(), getAlerts(language), getCases(language)]).then(([agents, alertResult, caseResult]) => {
+    Promise.all([getAgents(profile.scope), getAlerts(language, profile.scope), getCases(language, true, profile.scope)]).then(([agents, alertResult, caseResult]) => {
       const selected = agents.find((item) => item.id === id) ?? agents[0] ?? initialAgent;
       setAgent(selected);
       setAlerts(alertResult.data.filter((item) => item.agentId === selected.id));
       setCases(caseResult.data.filter((item) => item.outlet.includes(selected.id)));
     });
-  }, [id, initialAgent, language]);
+  }, [id, initialAgent, language, profile.id, profile.scope]);
 
   return <div className="min-h-screen text-text-primary"><Sidebar /><main className="app-main">
     <header className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -43,9 +46,9 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
       <div className="card p-5"><div className="section-kicker">Open alerts</div><div className="mt-3 text-3xl font-extrabold">{agent.alerts}</div><p className="mt-2 text-xs text-text-muted">{alerts.length} explainable alerts in the current demo view.</p></div>
     </section>
 
-    <section className="mb-6"><div className="mb-3"><div className="section-kicker">Provider separation</div><h2 className="mt-1 text-xl font-bold">E-money positions & feed confidence</h2></div><div className="grid gap-4 xl:grid-cols-3">{(['bkash', 'nagad', 'rocket'] as const).map((key) => <ProviderBalanceCard key={key} data={agent.providers[key]} />)}</div></section>
+    <section className="mb-6"><div className="mb-3"><div className="section-kicker">Provider separation</div><h2 className="mt-1 text-xl font-bold">E-money positions & feed confidence</h2></div><div className="grid gap-4 xl:grid-cols-3">{visibleProviders.map((key) => <ProviderBalanceCard key={key} data={agent.providers[key]} />)}</div></section>
 
-    <section className="mb-6 grid gap-5 xl:grid-cols-3" aria-label="Provider liquidity capacity">{(['bkash', 'nagad', 'rocket'] as const).map((key) => <LiquidityGauge key={key} data={agent.providers[key]} />)}</section>
+    <section className="mb-6 grid gap-5 xl:grid-cols-3" aria-label="Provider liquidity capacity">{visibleProviders.map((key) => <LiquidityGauge key={key} data={agent.providers[key]} />)}</section>
 
     <section className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
       <div><div className="mb-3"><div className="section-kicker">{t('evidenceConfidence')}</div><h2 className="mt-1 text-xl font-bold">{t('alertsDescription')}</h2></div><div className="space-y-4">{alerts.length ? alerts.map((alert) => <article key={alert.id} className="space-y-3"><BanglaAlertCard textBn={alert.messageBn} textEn={alert.messageEn} severity={alert.severity} /><div className="card p-4 text-xs text-text-secondary"><strong className="text-text-primary">{t('safeNextStep')}</strong> {alert.nextStep}<p className="mt-2 text-text-muted">{t('uncertainty')}: {alert.uncertainty}</p></div></article>) : <div className="card flex min-h-48 flex-col items-center justify-center text-center"><CheckCircle2 className="h-8 w-8 text-low" /><h3 className="mt-2 font-bold">No review alert</h3><p className="mt-1 text-xs text-text-muted">Current simulated provider feeds are within the configured range.</p></div>}</div></div>

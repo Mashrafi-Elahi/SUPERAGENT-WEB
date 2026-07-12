@@ -8,23 +8,27 @@ import ScenarioBadge from '../components/ui/ScenarioBadge';
 import { getAgents, type DashboardAgent } from '../../lib/api/dashboard';
 import { mockAgents, type DataQuality, type ProviderKey } from '../../lib/api/mockData';
 import { useLanguage } from '../../lib/i18n';
+import { useViewerProfile, visibleProviderKeys } from '../../lib/viewerProfile';
 
 export default function AgentsPage() {
   const { t } = useLanguage();
+  const profile = useViewerProfile();
   const [agents, setAgents] = useState<DashboardAgent[]>(mockAgents);
   const [search, setSearch] = useState('');
   const [area, setArea] = useState('all');
   const [provider, setProvider] = useState<'all' | ProviderKey>('all');
   const [quality, setQuality] = useState<'all' | DataQuality>('all');
+  const visibleProviders = useMemo(() => visibleProviderKeys(profile.scope), [profile.scope]);
 
-  useEffect(() => { getAgents().then(setAgents); }, []);
+  useEffect(() => { getAgents(profile.scope).then(setAgents); }, [profile.id, profile.scope]);
   const areas = useMemo(() => ['all', ...Array.from(new Set(agents.map((agent) => agent.area)))], [agents]);
   const filtered = agents.filter((agent) => {
     const query = search.trim().toLowerCase();
     const matchesSearch = !query || agent.name.toLowerCase().includes(query) || agent.id.toLowerCase().includes(query);
     const matchesArea = area === 'all' || agent.area === area;
-    const matchesProvider = provider === 'all' || agent.providers[provider].balance !== null;
-    const matchesQuality = quality === 'all' || (provider === 'all' ? Object.values(agent.providers).some((item) => item.dataQuality === quality) : agent.providers[provider].dataQuality === quality);
+    const scopedProvider = provider === 'all' ? visibleProviders : [provider];
+    const matchesProvider = provider === 'all' || visibleProviders.includes(provider) && agent.providers[provider].balance !== null;
+    const matchesQuality = quality === 'all' || scopedProvider.some((item) => agent.providers[item].dataQuality === quality);
     return matchesSearch && matchesArea && matchesProvider && matchesQuality;
   });
 
@@ -47,7 +51,7 @@ export default function AgentsPage() {
           <div className="mt-3 flex items-center justify-between gap-3 pl-2 text-xs text-text-muted"><span className="flex items-center gap-1.5"><Filter className="h-3.5 w-3.5" />{t('showingOutlets', { shown: filtered.length, total: agents.length })}</span><span>{t('currentDemoPeriod')}</span></div>
         </section>
 
-        <AgentTable agents={filtered} />
+        <AgentTable agents={filtered} visibleProviders={visibleProviders} />
       </main>
     </div>
   );
