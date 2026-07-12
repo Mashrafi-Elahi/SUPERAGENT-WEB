@@ -11,7 +11,7 @@ import type { Language } from '../i18n';
 import { withViewerScope, type CaseActor, type ViewerRole, type ViewerScope } from '../viewerProfile';
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? 'http://127.0.0.1:8000/api/v1';
+  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? 'https://super-agent-backend-u4mp.onrender.com/api/v1';
 
 export type DataSource = 'backend-api' | 'mock-fallback';
 
@@ -177,6 +177,20 @@ function scopedMockCases(scope?: ViewerScope): MockCase[] {
   return mockCases;
 }
 
+function incidentMatchesScope(incident: z.infer<typeof incidentSchema>, scope?: ViewerScope) {
+  if (scope?.viewerRole === 'AGENT' && scope.viewerAgentId) return incident.agent_id === scope.viewerAgentId;
+  if (scope?.viewerRole === 'FIELD_OFFICER' && scope.viewerArea) return incident.area === scope.viewerArea;
+  if (scope?.viewerRole === 'PROVIDER_OPERATIONS' && scope.viewerProviderId) return incident.provider_scope.includes(scope.viewerProviderId);
+  return true;
+}
+
+function caseMatchesScope(caseItem: CoordinationCase, scope?: ViewerScope) {
+  if (scope?.viewerRole === 'AGENT' && scope.viewerAgentId) return caseItem.agent_id === scope.viewerAgentId;
+  if (scope?.viewerRole === 'FIELD_OFFICER' && scope.viewerArea) return caseItem.area === scope.viewerArea;
+  if (scope?.viewerRole === 'PROVIDER_OPERATIONS' && scope.viewerProviderId) return caseItem.provider_scope.includes(scope.viewerProviderId);
+  return true;
+}
+
 function formatTime(value: string) {
   return new Date(value).toLocaleTimeString('en-BD', { hour: 'numeric', minute: '2-digit' });
 }
@@ -289,11 +303,13 @@ export async function getAlerts(language: Language = 'en', scope?: ViewerScope):
     apiJson(withViewerScope('/cases/queue', scope), z.array(coordinationCaseSchema)),
   ]);
   if (incidents) {
-    const explanations = await Promise.all(incidents.map((incident) => getIncidentExplanation(incident, language, scope)));
+    const scopedIncidents = incidents.filter((incident) => incidentMatchesScope(incident, scope));
+    const scopedCases = cases?.filter((caseItem) => caseMatchesScope(caseItem, scope));
+    const explanations = await Promise.all(scopedIncidents.map((incident) => getIncidentExplanation(incident, language, scope)));
     return {
-      data: incidents.map((incident, index) => {
+      data: scopedIncidents.map((incident, index) => {
         const alert = mapIncident(incident, explanations[index]);
-        const linkedCase = cases?.find((caseItem) => caseItem.incident_id === incident.incident_id);
+        const linkedCase = scopedCases?.find((caseItem) => caseItem.incident_id === incident.incident_id);
         return {
           ...alert,
           caseId: linkedCase?.case_id,
@@ -309,11 +325,12 @@ export async function getAlerts(language: Language = 'en', scope?: ViewerScope):
 export async function getCases(language: Language = 'en', includeExplanations = true, scope?: ViewerScope): Promise<ApiResult<MockCase[]>> {
   const cases = await apiJson(withViewerScope('/cases/queue', scope), z.array(coordinationCaseSchema));
   if (cases) {
+    const scopedCases = cases.filter((caseItem) => caseMatchesScope(caseItem, scope));
     const explanations = includeExplanations
-      ? await Promise.all(cases.map((caseItem) => getCaseExplanation(caseItem, language, scope)))
+      ? await Promise.all(scopedCases.map((caseItem) => getCaseExplanation(caseItem, language, scope)))
       : [];
     return {
-      data: cases.map((caseItem, index) => mapCase(caseItem, explanations[index])),
+      data: scopedCases.map((caseItem, index) => mapCase(caseItem, explanations[index])),
       source: 'backend-api',
     };
   }
@@ -429,12 +446,13 @@ export async function getAuditTrail(scope?: ViewerScope): Promise<ApiResult<type
       caseId: item.id,
       provider: item.provider,
       ...history,
-    })),
+    }))),
     source: 'mock-fallback',
   };
 
+  const scopedCases = cases.filter((caseItem) => caseMatchesScope(caseItem, scope));
   return {
-    data: cases.flatMap((caseItem) => caseItem.history.map((entry) => ({
+    data: scopedCases.flatMap((caseItem) => caseItem.history.map((entry) => ({
       id: entry.audit_id,
       caseId: entry.case_id,
       provider: caseItem.provider_scope[0] ?? 'SHARED',

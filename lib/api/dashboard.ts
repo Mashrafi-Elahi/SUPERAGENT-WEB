@@ -3,7 +3,7 @@ import { mockAgents, type MockAgent, type ProviderKey as MockProviderKey } from 
 import { withViewerScope, type ViewerScope } from '../viewerProfile';
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? 'http://127.0.0.1:8000/api/v1';
+  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? 'https://super-agent-backend-u4mp.onrender.com/api/v1';
 
 const providerIds = ['BKASH', 'NAGAD', 'ROCKET'] as const;
 const providerKeys = ['bkash', 'nagad', 'rocket'] as const;
@@ -250,15 +250,52 @@ async function readJson<T>(
 }
 
 async function getBalances(scope?: ViewerScope): Promise<AgentBalance[]> {
-  return (await readJson(withViewerScope('/balances', scope), z.array(agentBalanceSchema))) ?? [];
+  const balances = (await readJson(withViewerScope('/balances', scope), z.array(agentBalanceSchema))) ?? [];
+  if (scope?.viewerRole === 'AGENT' && scope.viewerAgentId) {
+    return balances.filter((balance) => balance.agent_id === scope.viewerAgentId);
+  }
+  if (scope?.viewerRole === 'FIELD_OFFICER' && scope.viewerArea) {
+    return balances.filter((balance) => agentDirectory[balance.agent_id]?.area === scope.viewerArea);
+  }
+  return balances;
 }
 
 async function getDataQualitySummary(scope?: ViewerScope): Promise<DataQualitySummary | null> {
-  return readJson(withViewerScope('/data-quality', scope), dataQualitySummarySchema);
+  const summary = await readJson(withViewerScope('/data-quality', scope), dataQualitySummarySchema);
+  if (!summary) return null;
+  const feeds = summary.feeds.filter((feed) => {
+    if (scope?.viewerRole === 'AGENT' && scope.viewerAgentId) return feed.agent_id === scope.viewerAgentId;
+    if (scope?.viewerRole === 'FIELD_OFFICER' && scope.viewerArea) return agentDirectory[feed.agent_id]?.area === scope.viewerArea;
+    if (scope?.viewerRole === 'PROVIDER_OPERATIONS' && scope.viewerProviderId) return feed.provider_id === scope.viewerProviderId;
+    return true;
+  });
+  return {
+    ...summary,
+    feeds,
+    total_feeds: feeds.length,
+    healthy: feeds.filter((feed) => feed.status === 'HEALTHY').length,
+    stale: feeds.filter((feed) => feed.status === 'STALE').length,
+    missing: feeds.filter((feed) => feed.status === 'MISSING').length,
+    conflicting: feeds.filter((feed) => feed.status === 'CONFLICTING').length,
+    average_confidence: feeds.length ? feeds.reduce((total, feed) => total + feed.confidence, 0) / feeds.length : 0,
+    fallback_required: feeds.some((feed) => feed.status !== 'HEALTHY'),
+  };
 }
 
 async function getLiquiditySummary(scope?: ViewerScope): Promise<LiquiditySummary | null> {
-  return readJson(withViewerScope('/liquidity', scope), liquiditySummarySchema);
+  const summary = await readJson(withViewerScope('/liquidity', scope), liquiditySummarySchema);
+  if (!summary) return null;
+  return {
+    agents: summary.agents
+      .filter((agent) => {
+        if (scope?.viewerRole === 'AGENT' && scope.viewerAgentId) return agent.agent_id === scope.viewerAgentId;
+        if (scope?.viewerRole === 'FIELD_OFFICER' && scope.viewerArea) return agentDirectory[agent.agent_id]?.area === scope.viewerArea;
+        return true;
+      })
+      .map((agent) => scope?.viewerRole === 'PROVIDER_OPERATIONS' && scope.viewerProviderId
+        ? { ...agent, provider_forecasts: agent.provider_forecasts.filter((forecast) => forecast.provider_id === scope.viewerProviderId) }
+        : agent),
+  };
 }
 
 async function getReplayStatus() {

@@ -40,3 +40,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 hackathon_problemstatement.md
+DEFENSE_GUIDE.md

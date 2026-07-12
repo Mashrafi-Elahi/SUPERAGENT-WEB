@@ -26,7 +26,7 @@ MFSA is a responsible decision-support prototype for multi-provider mobile finan
 Set the backend URL in `.env.local`:
 
 ```bash
-NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api/v1
+NEXT_PUBLIC_API_BASE_URL=https://super-agent-backend-u4mp.onrender.com/api/v1
 ```
 
 The frontend keeps these backend contracts open:
@@ -75,7 +75,3 @@ npm run build
 ## Backend integration
 
 The dashboard reads balances, feed quality and liquidity forecasts from the FastAPI service. Alerts, case queues, case workflow actions and audit entries are also backed by the service when it is running. The data-source badges identify when a route is using its synthetic fallback.
-
-## Judge defense
-
-See `DEFENSE_GUIDE.md` for the code map, short architecture answers, API snippets, workflow state machine, validation evidence and honest deployment limitations.
