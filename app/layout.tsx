@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Script from 'next/script';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -11,7 +12,11 @@ const themeBoot = `(function(){try{var s=localStorage.getItem('mfsa-theme');var 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head><script dangerouslySetInnerHTML={{ __html: themeBoot }} /></head>
+      <head>
+        <Script id="theme-boot" strategy="beforeInteractive">
+          {themeBoot}
+        </Script>
+      </head>
       <body>{children}</body>
     </html>
   );

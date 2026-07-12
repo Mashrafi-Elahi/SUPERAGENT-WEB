@@ -44,7 +44,7 @@ export function LiquidityProjectionChart() {
       <div className="mb-4 flex flex-col justify-between sm:flex-row sm:items-center">
         <div>
           <h3 className="text-sm font-semibold text-text-primary">Shared Cash & E-Money Projections</h3>
-          <p className="text-xs text-text-secondary">Scenario projection through Eid-eve shortage timeline</p>
+          <p className="text-xs text-text-secondary">Projected balances for the current scenario window</p>
         </div>
         <div className="mt-2 flex flex-wrap gap-3 text-xs sm:mt-0">
           <span className="flex items-center gap-1.5 text-text-primary">
@@ -132,7 +132,7 @@ export function LiquidityProjectionChart() {
             fontWeight="bold"
             className="fill-critical font-bangla"
           >
-            ⏰ ৫:২০ PM (শূন্য ক্যাশ)
+            ৫:২০ PM cash reserve
           </text>
 
           {/* Scenario Time Marker (4:35 PM) */}
@@ -167,7 +167,7 @@ export function LiquidityProjectionChart() {
         </svg>
       </div>
       <div className="mt-2 text-center text-[10px] text-text-muted italic">
-        * Projections are simulated based on current cash-out trends as of 4:35 PM demo window.
+        Simulated projection based on the 4:35 PM scenario window.
       </div>
     </div>
   );

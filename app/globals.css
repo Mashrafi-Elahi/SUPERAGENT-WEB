@@ -2,32 +2,36 @@
 
 :root {
   color-scheme: light;
-  --bg-base: oklch(0.965 0.018 145);
-  --bg-surface: oklch(0.94 0.012 145);
-  --bg-card: oklch(0.985 0.008 80);
-  --bg-elevated: oklch(0.99 0.005 80);
-  --bg-hover: oklch(0.92 0.02 145);
-  --bg-border: oklch(0.9 0.015 145);
-  --text-primary: oklch(0.22 0.02 240);
-  --text-secondary: oklch(0.48 0.02 240);
-  --text-muted: oklch(0.58 0.018 240);
-  --primary-pink: oklch(0.55 0.09 180);
-  --primary-hover: oklch(0.48 0.09 180);
-  --soft-pink: oklch(0.9 0.045 15);
-  --pink-stripe: oklch(0.82 0.09 155);
-  --teal: oklch(0.62 0.11 190);
-  --teal-soft: oklch(0.9 0.04 160);
-  --critical: #c43d4b;
-  --critical-bg: #fce8e6;
-  --warning: #b97808;
-  --warning-bg: #fff2cf;
-  --success: #2e7d5b;
-  --success-bg: #e5f3eb;
-  --information: #6f76d9;
-  --information-bg: #ececff;
-  --charcoal: oklch(0.24 0.015 250);
-  --shadow-card-val: 0 8px 28px rgba(36, 48, 38, 0.06), 0 1px 2px rgba(36, 48, 38, 0.06);
-  --shadow-glow-val: 0 10px 28px color-mix(in srgb, var(--teal) 18%, transparent);
+  --bg-base: #f1f5f2;
+  --bg-surface: #f6faf7;
+  --bg-card: #ffffff;
+  --bg-elevated: #ffffff;
+  --bg-hover: #edf3ef;
+  --bg-border: #e1e8e3;
+  --text-primary: #16211d;
+  --text-secondary: #566b63;
+  --text-muted: #8a978f;
+  --primary-pink: #e2136e;
+  --primary-hover: #bd0f5b;
+  --soft-pink: #fae7f0;
+  --pink-stripe: #e2136e;
+  --teal: #0fa697;
+  --teal-soft: #e7f5f1;
+  --critical: #dc2b57;
+  --critical-bg: #feeaf0;
+  --warning: #e8710a;
+  --warning-bg: #fff0df;
+  --success: #0e9f6e;
+  --success-bg: #e7f5ed;
+  --information: #4f66d8;
+  --information-bg: #edf1ff;
+  --charcoal: #10161a;
+  --sidebar: #10161a;
+  --sidebar-ink: #e9eeeb;
+  --sidebar-muted: #8b97a0;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --shadow-card-val: 0 1px 2px rgba(16, 33, 27, 0.04), 0 8px 24px rgba(16, 33, 27, 0.06);
+  --shadow-glow-val: 0 8px 24px rgba(15, 166, 151, 0.12);
 }
 
 html[data-theme="dark"] {
@@ -56,6 +60,10 @@ html[data-theme="dark"] {
   --information: #9da5ff;
   --information-bg: #292b4d;
   --charcoal: #0d100e;
+  --sidebar: #0c110e;
+  --sidebar-ink: #e9f0ec;
+  --sidebar-muted: #7f8d84;
+  --sidebar-border: rgba(255, 255, 255, 0.07);
   --shadow-card-val: 0 14px 40px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255,255,255,0.02);
   --shadow-glow-val: 0 14px 36px rgba(240, 59, 131, 0.18);
 }
@@ -112,7 +120,6 @@ html[data-theme="dark"] {
   html { @apply bg-bg-base text-text-primary; }
   body {
     @apply min-h-screen bg-bg-base text-text-primary antialiased;
-    background-image: radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--teal-soft) 50%, transparent), transparent 26rem);
     font-family: var(--font-sans);
   }
   button, input, select, textarea, a { @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bkash focus-visible:ring-offset-2; ring-offset-color: var(--bg-base); }
@@ -128,19 +135,19 @@ html[data-theme="dark"] {
   .theme-dark-icon { display: none; }
   html[data-theme="dark"] .theme-dark-icon { display: block; }
   html[data-theme="dark"] .theme-light-icon { display: none; }
-  .app-main { @apply min-h-screen px-4 pb-28 pt-6 sm:px-6 lg:ml-56 lg:px-8 lg:pb-10 lg:pt-7; }
-  .card { @apply rounded-xl border border-bg-border bg-bg-card shadow-card; }
-  .card-hover { @apply rounded-xl border border-bg-border bg-bg-card shadow-card transition duration-200 hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-glow; }
+  .app-main { @apply min-h-screen px-4 pb-28 pt-24 sm:px-6 lg:ml-60 lg:px-8 lg:pb-10 lg:pt-24; }
+  .card { @apply rounded-lg border border-bg-border bg-bg-card shadow-card; }
+  .card-hover { @apply rounded-lg border border-bg-border bg-bg-card shadow-card transition duration-200 hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-glow; }
   .pearl-stripe { position: relative; overflow: hidden; }
-  .pearl-stripe::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 5px; background: linear-gradient(180deg, var(--mint, var(--pink-stripe)), var(--teal)); }
-  .stripe-teal { background-image: repeating-linear-gradient(135deg, color-mix(in oklab, var(--teal) 22%, transparent) 0 6px, transparent 6px 14px, color-mix(in oklab, var(--pink-stripe) 30%, transparent) 14px 20px, transparent 20px 28px); }
-  .stripe-mint { background-image: repeating-linear-gradient(90deg, color-mix(in oklab, var(--pink-stripe) 45%, transparent) 0 3px, transparent 3px 9px); }
-  .text-display { font-family: var(--font-display); letter-spacing: -0.02em; }
-  h1, h2 { font-family: var(--font-display); letter-spacing: -0.02em; }
-  .section-kicker { @apply text-[11px] font-bold uppercase tracking-[0.16em] text-text-muted; }
-  .filter-control { @apply min-h-11 rounded-xl border border-bg-border bg-bg-elevated px-3 text-sm text-text-primary transition hover:border-bkash/35; }
-  .primary-button { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-bkash px-4 text-sm font-semibold text-white transition hover:bg-bkash-dark disabled:cursor-not-allowed disabled:opacity-60; }
-  .secondary-button { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-bg-border bg-bg-elevated px-4 text-sm font-semibold text-text-primary transition hover:bg-bg-hover; }
+  .pearl-stripe::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--teal); opacity: 0.9; }
+  .stripe-teal { background: linear-gradient(90deg, var(--teal), color-mix(in srgb, var(--primary-pink) 45%, var(--teal))); }
+  .stripe-mint { background: var(--teal); }
+  .text-display { font-family: var(--font-display); letter-spacing: 0; }
+  h1, h2 { font-family: var(--font-display); letter-spacing: 0; }
+  .section-kicker { @apply text-[10px] font-bold uppercase tracking-[0.14em] text-text-muted; }
+  .filter-control { @apply min-h-10 rounded-lg border border-bg-border bg-bg-elevated px-3 text-sm text-text-primary transition hover:border-teal/45; }
+  .primary-button { @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-bkash px-4 text-sm font-semibold text-white transition hover:bg-bkash-dark disabled:cursor-not-allowed disabled:opacity-60; }
+  .secondary-button { @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-bg-border bg-bg-elevated px-4 text-sm font-semibold text-text-primary transition hover:bg-bg-hover; }
   .badge-critical { @apply inline-flex items-center rounded-full border border-critical/25 bg-critical-bg px-2.5 py-1 text-xs font-semibold text-critical; }
   .badge-high, .badge-medium { @apply inline-flex items-center rounded-full border border-high/25 bg-high-bg px-2.5 py-1 text-xs font-semibold text-high; }
   .badge-low { @apply inline-flex items-center rounded-full border border-low/25 bg-low-bg px-2.5 py-1 text-xs font-semibold text-low; }
@@ -151,13 +158,14 @@ html[data-theme="dark"] {
   .chip-bkash { @apply inline-flex rounded-full border border-bkash/20 bg-bkash/10 px-2.5 py-1 text-xs font-semibold text-bkash; }
   .chip-nagad { @apply inline-flex rounded-full border border-nagad/20 bg-nagad/10 px-2.5 py-1 text-xs font-semibold text-nagad; }
   .chip-rocket { @apply inline-flex rounded-full border border-rocket/20 bg-rocket/10 px-2.5 py-1 text-xs font-semibold text-rocket; }
-  .nav-item { @apply flex min-h-12 items-center gap-3 rounded-md px-3 text-white/65 transition hover:bg-white/8 hover:text-white; }
-  .nav-item-active { @apply flex min-h-12 items-center gap-3 rounded-md bg-white/10 px-3 text-white shadow-sm; }
-  .nav-item-active::before { content: ""; width: 3px; height: 22px; border-radius: 999px; background: var(--teal); }
+  .nav-item { @apply flex min-h-11 items-center gap-3 rounded-lg px-3 text-white/65 transition hover:bg-white/8 hover:text-white; }
+  .nav-item-active { @apply flex min-h-11 items-center gap-3 rounded-lg bg-white/10 px-3 text-white shadow-sm; }
+  .nav-item-active::before { content: ""; width: 2px; height: 20px; border-radius: 999px; background: var(--teal); }
   .table-row { @apply border-b border-bg-border transition-colors hover:bg-bg-hover; }
   .table-head { @apply text-xs font-medium uppercase tracking-wider text-text-muted; }
   .bn { @apply font-bangla; }
   .data-source-pill { @apply inline-flex items-center gap-2 rounded-full border border-teal/25 bg-teal-soft px-3 py-1.5 text-xs font-semibold text-teal; }
+  .topbar-status { @apply inline-flex items-center gap-2 rounded-full border border-bg-border bg-bg-card px-3 py-1.5 text-xs font-semibold text-text-secondary shadow-card; }
 }
 
 @media (max-width: 1023px) {

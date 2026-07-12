@@ -7,6 +7,7 @@ import {
   type MockAlert,
   type MockCase,
 } from './mockData';
+import type { Language } from '../i18n';
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? 'http://127.0.0.1:8000/api/v1';
@@ -21,6 +22,7 @@ export interface ApiResult<T> {
 const providerIdSchema = z.enum(['BKASH', 'NAGAD', 'ROCKET']);
 const caseStatusSchema = z.enum(['OPEN', 'ACKNOWLEDGED', 'ASSIGNED', 'IN_REVIEW', 'ESCALATED', 'RESOLVED', 'CLOSED']);
 const routingRoleSchema = z.enum(['AGENT', 'FIELD_OFFICER', 'PROVIDER_OPERATIONS', 'RISK_REVIEWER']);
+const explanationAudienceSchema = z.enum(['AGENT', 'FIELD_OFFICER', 'PROVIDER_OPERATIONS', 'RISK_REVIEWER', 'MANAGEMENT']);
 
 const incidentSchema = z.object({
   incident_id: z.string(),
@@ -76,7 +78,27 @@ const coordinationCaseSchema = z.object({
   updated_at: z.string(),
 });
 
+const groundedExplanationSchema = z.object({
+  incident_id: z.string(),
+  language: z.enum(['en', 'bn', 'banglish']),
+  audience: explanationAudienceSchema,
+  generated_by: z.enum(['OPENAI', 'TEMPLATE_FALLBACK']),
+  headline: z.string(),
+  situation: z.string(),
+  evidence: z.array(z.string()),
+  uncertainty: z.string(),
+  safe_next_step: z.string(),
+  provider_boundary_notice: z.string(),
+  full_text: z.string(),
+  grounded: z.boolean(),
+  safety_validated: z.boolean(),
+  provider_data_redacted: z.boolean(),
+  latency_ms: z.number(),
+}).passthrough();
+
 type CoordinationCase = z.infer<typeof coordinationCaseSchema>;
+type RoutingRole = z.infer<typeof routingRoleSchema>;
+type GroundedExplanation = z.infer<typeof groundedExplanationSchema>;
 
 async function apiJson<T>(path: string, schema: z.ZodType<T>, init?: RequestInit): Promise<T | null> {
   try {
@@ -102,6 +124,10 @@ function displayRole(role: string): MockCase['owner'] {
   return roles[role] ?? 'Risk Reviewer';
 }
 
+function roleToAudience(role: RoutingRole | null | undefined): z.infer<typeof explanationAudienceSchema> {
+  return role ?? 'FIELD_OFFICER';
+}
+
 function displayStatus(status: z.infer<typeof caseStatusSchema>): CaseStatus {
   const statuses: Record<z.infer<typeof caseStatusSchema>, CaseStatus> = {
     OPEN: 'New',
@@ -119,7 +145,7 @@ function formatTime(value: string) {
   return new Date(value).toLocaleTimeString('en-BD', { hour: 'numeric', minute: '2-digit' });
 }
 
-function mapCase(caseItem: CoordinationCase): MockCase {
+function mapCase(caseItem: CoordinationCase, explanation?: GroundedExplanation | null): MockCase {
   const provider = caseItem.provider_scope[0] ?? 'SHARED';
   const history = caseItem.history.map((entry) => ({
     timestamp: formatTime(entry.occurred_at),
@@ -138,13 +164,13 @@ function mapCase(caseItem: CoordinationCase): MockCase {
     owner: displayRole(caseItem.case_owner?.role ?? caseItem.responsible_stakeholder),
     assignedTo: caseItem.case_owner?.display_name ?? displayRole(caseItem.responsible_stakeholder),
     receiver: displayRole(caseItem.receiver_role),
-    nextStep: caseItem.recommended_next_step,
+    nextStep: explanation?.safe_next_step ?? caseItem.recommended_next_step,
     ackStatus: displayStatus(caseItem.status),
     escalationLevel: caseItem.status === 'ESCALATED' ? 3 : caseItem.status === 'IN_REVIEW' ? 2 : 1,
     resolutionStatus: caseItem.resolution?.summary ?? (caseItem.safe_fallback_active ? caseItem.safe_fallback_reason ?? 'Safe fallback is active.' : 'Human review pending'),
     timestamp: formatTime(caseItem.updated_at),
-    notes: latestNote,
-    evidence: [
+    notes: explanation?.situation ?? latestNote,
+    evidence: explanation?.evidence ?? [
       caseItem.human_review_required ? 'Human review is required.' : 'Human review is recorded.',
       caseItem.safe_fallback_active ? caseItem.safe_fallback_reason ?? 'Safe fallback is active.' : 'No safe fallback is active.',
     ],
@@ -153,16 +179,16 @@ function mapCase(caseItem: CoordinationCase): MockCase {
   };
 }
 
-function mapIncident(incident: z.infer<typeof incidentSchema>): MockAlert {
+function mapIncident(incident: z.infer<typeof incidentSchema>, explanation?: GroundedExplanation | null): MockAlert {
   const provider = incident.provider_scope[0]?.toLowerCase() as MockAlert['provider'] | undefined;
   return {
     id: incident.incident_id,
-    title: incident.title,
-    messageBn: 'এই সিমুলেটেড পরিস্থিতি মানব পর্যালোচনা প্রয়োজন। প্রমাণ ও অনিশ্চয়তা যাচাই করে পরবর্তী পদক্ষেপ নিন।',
-    messageEn: incident.summary,
-    evidence: incident.evidence.map((item) => item.message),
-    uncertainty: incident.uncertainty.join(' '),
-    nextStep: incident.recommended_next_step,
+    title: explanation?.headline ?? incident.title,
+    messageBn: explanation?.language === 'bn' ? explanation.situation : 'এই সিমুলেটেড পরিস্থিতি মানব পর্যালোচনা প্রয়োজন। প্রমাণ ও অনিশ্চয়তা যাচাই করে পরবর্তী পদক্ষেপ নিন।',
+    messageEn: explanation?.language === 'en' ? explanation.situation : incident.summary,
+    evidence: explanation?.evidence ?? incident.evidence.map((item) => item.message),
+    uncertainty: explanation?.uncertainty ?? incident.uncertainty.join(' '),
+    nextStep: explanation?.safe_next_step ?? incident.recommended_next_step,
     owner: displayRole(incident.responsible_stakeholder),
     confidence: incident.confidence,
     severity: incident.priority === 'P1' ? 'critical' : incident.priority === 'P2' ? 'high' : incident.priority === 'P3' ? 'medium' : 'low',
@@ -176,14 +202,57 @@ function mapIncident(incident: z.infer<typeof incidentSchema>): MockAlert {
 
 const operator = { actor_id: 'ui-operator', display_name: 'MFSA Operator', role: 'RISK_REVIEWER' } as const;
 
-export async function getAlerts(): Promise<ApiResult<MockAlert[]>> {
-  const incidents = await apiJson('/incidents/active', z.array(incidentSchema));
-  return incidents ? { data: incidents.map(mapIncident), source: 'backend-api' } : { data: mockAlerts, source: 'mock-fallback' };
+async function getIncidentExplanation(
+  incident: z.infer<typeof incidentSchema>,
+  language: Language,
+): Promise<GroundedExplanation | null> {
+  return apiJson(`/explanations/incidents/${incident.incident_id}`, groundedExplanationSchema, {
+    method: 'POST',
+    body: JSON.stringify({
+      language,
+      audience: roleToAudience(incident.responsible_stakeholder),
+      prefer_ai: true,
+    }),
+  });
 }
 
-export async function getCases(): Promise<ApiResult<MockCase[]>> {
+async function getCaseExplanation(
+  caseItem: CoordinationCase,
+  language: Language,
+): Promise<GroundedExplanation | null> {
+  return apiJson(`/explanations/cases/${caseItem.case_id}`, groundedExplanationSchema, {
+    method: 'POST',
+    body: JSON.stringify({
+      language,
+      audience: roleToAudience(caseItem.case_owner?.role ?? caseItem.responsible_stakeholder),
+      prefer_ai: true,
+    }),
+  });
+}
+
+export async function getAlerts(language: Language = 'en'): Promise<ApiResult<MockAlert[]>> {
+  const incidents = await apiJson('/incidents/active', z.array(incidentSchema));
+  if (incidents) {
+    const explanations = await Promise.all(incidents.map((incident) => getIncidentExplanation(incident, language)));
+    return {
+      data: incidents.map((incident, index) => mapIncident(incident, explanations[index])),
+      source: 'backend-api',
+    };
+  }
+  return { data: mockAlerts, source: 'mock-fallback' };
+}
+
+export async function getCases(language: Language = 'en', includeExplanations = true): Promise<ApiResult<MockCase[]>> {
   const cases = await apiJson('/cases/queue', z.array(coordinationCaseSchema));
-  if (cases) return { data: cases.map(mapCase), source: 'backend-api' };
+  if (cases) {
+    const explanations = includeExplanations
+      ? await Promise.all(cases.map((caseItem) => getCaseExplanation(caseItem, language)))
+      : [];
+    return {
+      data: cases.map((caseItem, index) => mapCase(caseItem, explanations[index])),
+      source: 'backend-api',
+    };
+  }
   return { data: mockCases, source: 'mock-fallback' };
 }
 
